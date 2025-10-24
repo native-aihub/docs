@@ -148,8 +148,8 @@
     "global": {
       "anchors": [
           {
-            "anchor": "Documentation",
-            "href": "https://docs.documind.cloud",
+            "anchor": "Documind Website",
+            "href": "https://www.documind.cloud",
             "icon": "book-open-cover"
           },
         {

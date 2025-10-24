@@ -56,11 +56,10 @@ Build a schema matching the form structure:
         "first_name": {"type": "string", "description": "First name"},
         "last_name": {"type": "string", "description": "Last name"},
         "middle_initial": {"type": "string", "description": "Middle initial"},
-        "date_of_birth": {"type": "string", "format": "date"},
+        "date_of_birth": {"type": "string", "description": "Date of birth in YYYY-MM-DD format"},
         "ssn": {
           "type": "string",
-          "description": "Social Security Number in format XXX-XX-XXXX",
-          "pattern": "^\\d{3}-\\d{2}-\\d{4}$"
+          "description": "Social Security Number in format XXX-XX-XXXX"
         }
       },
       "required": ["first_name", "last_name", "date_of_birth"]
@@ -72,9 +71,9 @@ Build a schema matching the form structure:
         "street_address": {"type": "string"},
         "city": {"type": "string"},
         "state": {"type": "string"},
-        "zip_code": {"type": "string", "pattern": "^\\d{5}(-\\d{4})?$"},
+        "zip_code": {"type": "string", "description": "5-digit ZIP code"},
         "phone": {"type": "string"},
-        "email": {"type": "string", "format": "email"}
+        "email": {"type": "string", "description": "Contact email address"}
       },
       "required": ["street_address", "city", "state", "zip_code"]
     },
@@ -84,7 +83,7 @@ Build a schema matching the form structure:
       "named_entities": {
         "employer_name": {"type": "string"},
         "position": {"type": "string"},
-        "start_date": {"type": "string", "format": "date"},
+        "start_date": {"type": "string", "description": "Employment start date in YYYY-MM-DD format"},
         "annual_income": {"type": "number"}
       }
     },
@@ -97,7 +96,7 @@ Build a schema matching the form structure:
         "terms_accepted": {"type": "boolean"}
       }
     },
-    "signature_date": {"type": "string", "format": "date"},
+    "signature_date": {"type": "string", "description": "Date of signature in YYYY-MM-DD format"},
     "signature_present": {
       "type": "boolean",
       "description": "Whether a signature is present on the form"
@@ -151,39 +150,16 @@ def normalize_checkbox_values(data: dict) -> dict:
 ## Step 5: Validate Form Data
 
 ```python
-import re
-from datetime import datetime
-
 def validate_form_data(data: dict) -> tuple[bool, list]:
     """Validate extracted form data"""
     errors = []
     
-    # Validate SSN format
-    if "applicant" in data and "ssn" in data["applicant"]:
-        ssn = data["applicant"]["ssn"]
-        if ssn and not re.match(r'^\d{3}-\d{2}-\d{4}$', ssn):
-            errors.append(f"Invalid SSN format: {ssn}")
+    # Check required fields
+    if "applicant" not in data:
+        errors.append("Missing applicant information")
     
-    # Validate email
-    if "contact" in data and "email" in data["contact"]:
-        email = data["contact"]["email"]
-        if email and not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
-            errors.append(f"Invalid email format: {email}")
-    
-    # Validate ZIP code
-    if "contact" in data and "zip_code" in data["contact"]:
-        zip_code = data["contact"]["zip_code"]
-        if zip_code and not re.match(r'^\d{5}(-\d{4})?$', zip_code):
-            errors.append(f"Invalid ZIP code: {zip_code}")
-    
-    # Validate dates
-    if "applicant" in data and "date_of_birth" in data["applicant"]:
-        try:
-            dob = datetime.fromisoformat(data["applicant"]["date_of_birth"])
-            if dob > datetime.now():
-                errors.append("Date of birth is in the future")
-        except (ValueError, TypeError):
-            errors.append("Invalid date of birth format")
+    if "contact" not in data:
+        errors.append("Missing contact information")
     
     # Validate signature
     if not data.get("signature_present"):
@@ -277,10 +253,9 @@ result = requests.post(
 {
   "interests": {
     "type": "array",
-    "description": "Selected interest categories (can be multiple)",
+    "description": "Selected interest categories (can be multiple, e.g., Sports, Music, Travel, Reading, Technology)",
     "items": {
-      "type": "string",
-      "enum": ["Sports", "Music", "Travel", "Reading", "Technology"]
+      "type": "string"
     }
   }
 }
@@ -317,8 +292,7 @@ result = requests.post(
         "end_date": {"type": "string"},
         "reason_for_leaving": {"type": "string"}
       }
-    },
-    "maxItems": 5
+    }
   }
 }
 ```

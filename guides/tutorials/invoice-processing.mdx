@@ -38,13 +38,11 @@ First, create a comprehensive schema for invoice data:
     },
     "invoice_date": {
       "type": "string",
-      "description": "Date the invoice was issued in YYYY-MM-DD format",
-      "format": "date"
+      "description": "Date the invoice was issued in YYYY-MM-DD format"
     },
     "due_date": {
       "type": "string",
-      "description": "Payment due date in YYYY-MM-DD format",
-      "format": "date"
+      "description": "Payment due date in YYYY-MM-DD format"
     },
     "vendor": {
       "type": "object",
@@ -115,8 +113,7 @@ First, create a comprehensive schema for invoice data:
     },
     "total": {
       "type": "number",
-      "description": "Total amount due",
-      "minimum": 0
+      "description": "Total amount due"
     },
     "currency": {
       "type": "string",

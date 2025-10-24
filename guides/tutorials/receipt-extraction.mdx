@@ -23,8 +23,7 @@ Extract structured data from receipts for expense tracking, accounting, and reim
     },
     "transaction_date": {
       "type": "string",
-      "description": "Transaction date in YYYY-MM-DD format",
-      "format": "date"
+      "description": "Transaction date in YYYY-MM-DD format"
     },
     "transaction_time": {
       "type": "string",
@@ -69,8 +68,7 @@ Extract structured data from receipts for expense tracking, accounting, and reim
     },
     "total": {
       "type": "number",
-      "description": "Final total paid",
-      "minimum": 0
+      "description": "Final total paid"
     },
     "payment_method": {
       "type": "string",
@@ -78,13 +76,11 @@ Extract structured data from receipts for expense tracking, accounting, and reim
     },
     "last_four_digits": {
       "type": "string",
-      "description": "Last 4 digits of card used (if card payment)",
-      "pattern": "^\\d{4}$"
+      "description": "Last 4 digits of card used (if card payment, must be 4 digits)"
     },
     "category": {
       "type": "string",
-      "description": "Expense category",
-      "enum": ["Meals", "Transportation", "Lodging", "Office Supplies", "Other"]
+      "description": "Expense category (e.g., Meals, Transportation, Lodging, Office Supplies, Other)"
     }
   },
   "required": ["merchant_name", "transaction_date", "total"]

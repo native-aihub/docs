@@ -250,8 +250,7 @@ Schemas and prompts work together:
     "named_entities": {
       "invoice_date": {
         "type": "string",
-        "description": "Invoice issue date",  // Schema describes the field
-        "format": "date"
+        "description": "Invoice issue date in YYYY-MM-DD format"  // Schema describes the field
       }
     }
   },
@@ -310,7 +309,7 @@ for i, result in enumerate(results):
   "schema": {
     "invoice_date": {
       "type": "string",
-      "format": "date"  // Expects YYYY-MM-DD
+      "description": "Invoice date in YYYY-MM-DD format"
     }
   },
   "prompt": "Use MM/DD/YYYY format for dates"  // Contradicts schema!

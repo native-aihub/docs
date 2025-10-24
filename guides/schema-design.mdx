@@ -38,18 +38,15 @@ A production-ready schema with all recommended fields:
   "named_entities": {
     "invoice_number": {
       "type": "string",
-      "description": "The unique invoice identifier (e.g., INV-2024-001)",
-      "pattern": "^INV-\\d{4}-\\d{3}$"
+      "description": "The unique invoice identifier (e.g., INV-2024-001)"
     },
     "invoice_date": {
       "type": "string",
-      "description": "Invoice date in YYYY-MM-DD format",
-      "format": "date"
+      "description": "Invoice date in YYYY-MM-DD format"
     },
     "total_amount": {
       "type": "number",
-      "description": "Total invoice amount in USD",
-      "minimum": 0
+      "description": "Total invoice amount in USD"
     }
   },
   "required": ["invoice_number", "invoice_date", "total_amount"]
@@ -130,8 +127,7 @@ A production-ready schema with all recommended fields:
 {
   "invoice_date": {
     "type": "string",
-    "description": "The date the invoice was issued, in MM/DD/YYYY format",
-    "format": "date"
+    "description": "The date the invoice was issued, in MM/DD/YYYY format"
   }
 }
 ```
@@ -154,38 +150,12 @@ A production-ready schema with all recommended fields:
   },
   "due_date": {
     "type": "string",
-    "format": "date",           // Specify format
-    "description": "Payment due date"
+    "description": "Payment due date in YYYY-MM-DD format"
   }
 }
 ```
 
-### 5. Use Constraints and Validation
-
-Add constraints to catch errors early:
-
-```json
-{
-  "total_amount": {
-    "type": "number",
-    "description": "Total invoice amount",
-    "minimum": 0,               // No negative amounts
-    "maximum": 1000000          // Sanity check
-  },
-  "email": {
-    "type": "string",
-    "description": "Contact email",
-    "format": "email"           // Email validation
-  },
-  "invoice_number": {
-    "type": "string",
-    "description": "Invoice number",
-    "pattern": "^INV-\\d+$"    // Must match pattern
-  }
-}
-```
-
-### 6. Mark Critical Fields as Required
+### 5. Mark Critical Fields as Required
 
 ```json
 {
@@ -254,16 +224,15 @@ For structured lists like line items:
 }
 ```
 
-### Array Constraints
+### Working with Arrays
 
-Limit array size for better performance:
+Define arrays to extract repeating data:
 
 ```json
 {
   "line_items": {
     "type": "array",
-    "minItems": 1,              // At least one item
-    "maxItems": 100,            // No more than 100
+    "description": "Line items in the invoice",
     "items": {...}
   }
 }
@@ -428,8 +397,8 @@ Avoid nesting deeper than 3-4 levels. Consider flattening or splitting into mult
       "named_entities": {
         "first_name": {"type": "string"},
         "last_name": {"type": "string"},
-        "date_of_birth": {"type": "string", "format": "date"},
-        "ssn": {"type": "string", "pattern": "^\\d{3}-\\d{2}-\\d{4}$"}
+        "date_of_birth": {"type": "string", "description": "Date of birth in YYYY-MM-DD format"},
+        "ssn": {"type": "string", "description": "Social Security Number in format XXX-XX-XXXX"}
       }
     },
     "address": {
@@ -456,55 +425,7 @@ Avoid nesting deeper than 3-4 levels. Consider flattening or splitting into mult
 }
 ```
 
-## Advanced Techniques
-
-### Enums for Categorical Data
-
-Constrain values to specific options:
-
-```json
-{
-  "payment_status": {
-    "type": "string",
-    "description": "Current payment status",
-    "enum": ["Paid", "Pending", "Overdue", "Cancelled"]
-  },
-  "payment_method": {
-    "type": "string",
-    "description": "Payment method",
-    "enum": ["Credit Card", "Check", "Wire Transfer", "Cash"]
-  }
-}
-```
-
-### Conditional Fields
-
-Use `oneOf` for alternative structures:
-
-```json
-{
-  "payment_details": {
-    "oneOf": [
-      {
-        "type": "object",
-        "named_entities": {
-          "payment_type": {"const": "credit_card"},
-          "card_last_four": {"type": "string"}
-        }
-      },
-      {
-        "type": "object",
-        "named_entities": {
-          "payment_type": {"const": "check"},
-          "check_number": {"type": "string"}
-        }
-      }
-    ]
-  }
-}
-```
-
-### Examples in Descriptions
+## Examples in Descriptions
 
 Include examples to guide extraction:
 
