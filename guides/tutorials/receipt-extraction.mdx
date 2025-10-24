@@ -1,0 +1,365 @@
+---
+title: "Receipt Extraction Tutorial"
+description: "Extract data from receipts and expense documents"
+---
+
+## Overview
+
+Extract structured data from receipts for expense tracking, accounting, and reimbursement workflows.
+
+## Receipt Schema
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "merchant_name": {
+      "type": "string",
+      "description": "Store or restaurant name (usually at the top in large text)"
+    },
+    "merchant_address": {
+      "type": "string",
+      "description": "Merchant location address"
+    },
+    "transaction_date": {
+      "type": "string",
+      "description": "Transaction date in YYYY-MM-DD format",
+      "format": "date"
+    },
+    "transaction_time": {
+      "type": "string",
+      "description": "Transaction time in HH:MM format"
+    },
+    "items": {
+      "type": "array",
+      "description": "Individual items purchased",
+      "items": {
+        "type": "object",
+        "named_entities": {
+          "name": {
+            "type": "string",
+            "description": "Item name or description"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity purchased"
+          },
+          "unit_price": {
+            "type": "number",
+            "description": "Price per unit"
+          },
+          "total_price": {
+            "type": "number",
+            "description": "Total price for this item"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "description": "Subtotal before tax and tip"
+    },
+    "tax": {
+      "type": "number",
+      "description": "Tax amount"
+    },
+    "tip": {
+      "type": "number",
+      "description": "Tip amount (if applicable)"
+    },
+    "total": {
+      "type": "number",
+      "description": "Final total paid",
+      "minimum": 0
+    },
+    "payment_method": {
+      "type": "string",
+      "description": "Payment method (Cash, Credit Card, Debit Card, etc.)"
+    },
+    "last_four_digits": {
+      "type": "string",
+      "description": "Last 4 digits of card used (if card payment)",
+      "pattern": "^\\d{4}$"
+    },
+    "category": {
+      "type": "string",
+      "description": "Expense category",
+      "enum": ["Meals", "Transportation", "Lodging", "Office Supplies", "Other"]
+    }
+  },
+  "required": ["merchant_name", "transaction_date", "total"]
+}
+```
+
+## Extraction Prompt
+
+```python
+RECEIPT_PROMPT = """
+Extract receipt information accurately.
+
+Instructions:
+- Merchant name is usually at the top in the largest text
+- Date and time are typically near the top or bottom
+- Extract ALL items from the receipt with their prices
+- Subtotal is before tax and tip
+- Tax is labeled as 'Tax', 'Sales Tax', or 'GST'
+- Tip may be labeled as 'Tip', 'Gratuity', or added to total
+- Total is the final amount paid
+- Payment method is usually at bottom (Cash, Visa, MasterCard, etc.)
+- For card payments, extract last 4 digits if visible
+
+Common formats:
+- Date: MM/DD/YYYY or DD/MM/YYYY
+- Time: HH:MM AM/PM or 24-hour format
+- Prices: May have $ symbol or not
+
+If a field is not present, return null.
+"""
+```
+
+## Processing Receipts
+
+```python
+class ReceiptProcessor:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.documind.cloud/api/v1"
+        self.headers = {"X-API-Key": api_key}
+        self.schema = self._load_schema()
+    
+    def process_receipt(self, file_path: str) -> dict:
+        """Process a receipt and categorize"""
+        # Upload
+        document_id = self._upload(file_path)
+        
+        # Extract - use VLM for better performance on photos
+        result = self._extract(document_id, mode="vlm")
+        
+        # Auto-categorize
+        data = result["results"]
+        data["category"] = self._auto_categorize(data)
+        
+        # Validate amounts
+        if not self._validate_amounts(data):
+            logger.warning(f"Amount validation failed for {file_path}")
+            data["validation_failed"] = True
+        
+        return data
+    
+    def _auto_categorize(self, data: dict) -> str:
+        """Automatically categorize expense"""
+        merchant = data.get("merchant_name", "").lower()
+        
+        # Keywords for categories
+        categories = {
+            "Meals": ["restaurant", "cafe", "coffee", "food", "dining"],
+            "Transportation": ["uber", "lyft", "taxi", "gas", "parking"],
+            "Lodging": ["hotel", "airbnb", "motel", "inn"],
+            "Office Supplies": ["office", "staples", "depot", "supplies"]
+        }
+        
+        for category, keywords in categories.items():
+            if any(keyword in merchant for keyword in keywords):
+                return category
+        
+        return "Other"
+    
+    def _validate_amounts(self, data: dict) -> bool:
+        """Validate that amounts sum correctly"""
+        subtotal = data.get("subtotal", 0) or 0
+        tax = data.get("tax", 0) or 0
+        tip = data.get("tip", 0) or 0
+        total = data.get("total", 0) or 0
+        
+        # Calculate expected total
+        expected_total = subtotal + tax + tip
+        
+        # Allow small variance for rounding
+        return abs(expected_total - total) < 0.02
+
+# Usage
+processor = ReceiptProcessor(api_key)
+receipt_data = processor.process_receipt("receipt.jpg")
+
+print(f"Merchant: {receipt_data['merchant_name']}")
+print(f"Total: ${receipt_data['total']:.2f}")
+print(f"Category: {receipt_data['category']}")
+```
+
+## Handling Receipt Photos
+
+Receipts are often photos from mobile devices. Optimize for image quality:
+
+```python
+from PIL import Image
+
+def preprocess_receipt_image(image_path: str, output_path: str):
+    """Enhance receipt image for better extraction"""
+    img = Image.open(image_path)
+    
+    # Convert to grayscale
+    img = img.convert('L')
+    
+    # Increase contrast
+    from PIL import ImageEnhance
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.5)
+    
+    # Resize if too large
+    max_size = (2000, 2000)
+    img.thumbnail(max_size, Image.LANCZOS)
+    
+    # Save
+    img.save(output_path, 'JPEG', quality=90)
+
+# Preprocess before upload
+preprocess_receipt_image("receipt_photo.jpg", "receipt_enhanced.jpg")
+result = processor.process_receipt("receipt_enhanced.jpg")
+```
+
+## Bulk Receipt Processing
+
+Process multiple receipts efficiently:
+
+```python
+import concurrent.futures
+
+def process_receipt_batch(processor: ReceiptProcessor, file_paths: list) -> list:
+    """Process multiple receipts in parallel"""
+    results = []
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {
+            executor.submit(processor.process_receipt, path): path
+            for path in file_paths
+        }
+        
+        for future in concurrent.futures.as_completed(futures):
+            file_path = futures[future]
+            try:
+                result = future.result()
+                results.append({
+                    "file": file_path,
+                    "success": True,
+                    "data": result
+                })
+                print(f"✓ {file_path}: ${result['total']:.2f}")
+            except Exception as e:
+                results.append({
+                    "file": file_path,
+                    "success": False,
+                    "error": str(e)
+                })
+                print(f"✗ {file_path}: {e}")
+    
+    return results
+
+# Process all receipts in folder
+from pathlib import Path
+
+receipt_dir = Path("receipts/")
+receipt_files = list(receipt_dir.glob("*.{jpg,jpeg,png,pdf}"))
+
+results = process_receipt_batch(processor, [str(f) for f in receipt_files])
+
+# Generate expense report
+total_expenses = sum(
+    r["data"]["total"]
+    for r in results
+    if r["success"]
+)
+
+print(f"\nTotal Expenses: ${total_expenses:.2f}")
+```
+
+## Export to Expense Management
+
+```python
+import csv
+from datetime import datetime
+
+def export_to_csv(results: list, output_file: str):
+    """Export receipts to CSV for expense management"""
+    with open(output_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        
+        # Header
+        writer.writerow([
+            "Date", "Merchant", "Category", "Amount", "Tax", "Tip", "Total", "Payment Method"
+        ])
+        
+        # Data rows
+        for result in results:
+            if result["success"]:
+                data = result["data"]
+                writer.writerow([
+                    data.get("transaction_date", ""),
+                    data.get("merchant_name", ""),
+                    data.get("category", "Other"),
+                    data.get("subtotal", 0),
+                    data.get("tax", 0),
+                    data.get("tip", 0),
+                    data.get("total", 0),
+                    data.get("payment_method", "")
+                ])
+
+# Export
+export_to_csv(results, "expenses_report.csv")
+print("Exported to expenses_report.csv")
+```
+
+## Integration with Accounting Software
+
+```python
+# Example: Export to QuickBooks format
+def export_to_quickbooks(results: list):
+    """Format receipts for QuickBooks import"""
+    qb_data = []
+    
+    for result in results:
+        if result["success"]:
+            data = result["data"]
+            qb_data.append({
+                "Date": data["transaction_date"],
+                "Vendor": data["merchant_name"],
+                "Category": data["category"],
+                "Amount": data["total"],
+                "Memo": f"Receipt from {data['merchant_name']}",
+                "Account": "Business Expenses"
+            })
+    
+    return qb_data
+```
+
+## Best Practices for Receipts
+
+<Card title="Receipt Processing Tips" icon="lightbulb">
+- Use VLM mode for photos and scanned receipts
+- Preprocess images for better quality
+- Validate that amounts sum correctly
+- Auto-categorize for faster expense reporting
+- Handle missing fields gracefully (tips, tax)
+- Store original receipt images for audit
+- Process in batches for efficiency
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Invoice Processing" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  Extract invoice data
+</Card>
+
+<Card title="Batch Processing" icon="layer-group" href="/guides/tutorials/batch-processing">
+  Process receipts at scale
+</Card>
+
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Design better schemas
+</Card>
+
+<Card title="Performance Optimization" icon="gauge-high" href="/guides/performance-optimization">
+  Optimize performance and speed
+</Card>
+</CardGroup>
+

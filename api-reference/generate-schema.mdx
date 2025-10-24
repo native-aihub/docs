@@ -1,0 +1,44 @@
+---
+title: "Generate Schema"
+description: "Auto-generate extraction schema from a document"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/schema/{document_id}
+```
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the uploaded document |
+
+## Response
+
+```json
+{
+  "schema": {
+    "type": "object",
+    "named_entities": {
+      "field_name": {
+        "type": "string",
+        "description": "Auto-detected field"
+      }
+    }
+  }
+}
+```
+
+## Example
+
+```python
+response = requests.post(
+    f"https://api.documind.cloud/api/v1/schema/{document_id}",
+    headers={"X-API-Key": API_KEY}
+)
+
+schema = response.json()["schema"]
+```
+

@@ -1,0 +1,48 @@
+---
+title: "Get Current Usage"
+description: "Get current usage metrics and subscription info"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/usage/current
+```
+
+## Response
+
+```json
+{
+  "user_id": "user-id",
+  "subscription": {
+    "tier_name": "Professional",
+    "is_active": true
+  },
+  "limits": {
+    "api_calls_limit": 10000,
+    "extractions_limit": 5000
+  },
+  "current_usage": {
+    "api_calls_count": 1250,
+    "extractions_count": 450
+  },
+  "period": {
+    "start": "2024-01-01T00:00:00Z",
+    "end": "2024-02-01T00:00:00Z",
+    "days_remaining": 15
+  }
+}
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/usage/current",
+    headers={"X-API-Key": API_KEY}
+)
+
+usage = response.json()
+print(f"API calls: {usage['current_usage']['api_calls_count']} / {usage['limits']['api_calls_limit']}")
+```
+

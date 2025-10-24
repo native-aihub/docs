@@ -1,0 +1,26 @@
+---
+title: "Delete API Key"
+description: "Revoke an API key"
+---
+
+## Endpoint
+
+```
+DELETE https://api.documind.cloud/api/v1/auth/api-keys/{key_id}
+```
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `key_id` | string (UUID) | Yes | ID of the API key to revoke |
+
+## Response
+
+```json
+{
+  "status": "success",
+  "message": "API key revoked successfully"
+}
+```
+

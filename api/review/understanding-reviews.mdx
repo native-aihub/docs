@@ -1,0 +1,420 @@
+---
+title: "Understanding Reviews"
+description: "How automatic review flagging works and when to use it"
+---
+
+## What are Reviews?
+
+When using Advanced or VLM extraction modes, Documind automatically analyzes the confidence of extracted data. If required fields fall below your specified threshold, the extraction is flagged for human review.
+
+This creates a **human-in-the-loop** workflow where:
+1. AI extracts data with confidence scoring
+2. Low-confidence fields are automatically flagged
+3. Human reviewer corrects flagged fields
+4. Automation continues with corrected data
+
+## Why Use Reviews?
+
+<CardGroup cols={2}>
+<Card title="Accuracy Assurance" icon="check">
+  Catch AI errors before they propagate through your automation pipeline
+</Card>
+
+<Card title="Cost Optimization" icon="dollar-sign">
+  Only review documents that need it, not every extraction
+</Card>
+
+<Card title="Audit Trail" icon="list-check">
+  Track who reviewed what and when for compliance
+</Card>
+
+<Card title="Continuous Improvement" icon="arrow-trend-up">
+  Reviewed data helps improve future extractions
+</Card>
+</CardGroup>
+
+## How Flagging Works
+
+### Confidence Calculation
+
+For each extracted field, confidence is calculated as:
+
+```
+confidence = (0.4 × lexical_similarity) + (0.6 × semantic_similarity)
+```
+
+- **Lexical similarity**: How well the extracted text matches across models
+- **Semantic similarity**: How similar the meaning is across model outputs
+
+### Review Threshold
+
+Set your threshold based on risk tolerance:
+
+```python
+extract_config = {
+    "schema": {...},
+    # Advanced mode - don't set model or extraction_mode
+    "review_threshold": 85  # Flag fields below 85% confidence
+}
+```
+
+| Threshold | Use Case | Review Rate |
+|-----------|----------|-------------|
+| 90-100 | Critical financial data | ~30-40% |
+| 80-89 | Standard business documents | ~15-25% |
+| 70-79 | Non-critical extraction | ~5-15% |
+| < 70 | Not recommended | High |
+
+<Tip>
+Start with 80% threshold and adjust based on your accuracy requirements and review capacity.
+</Tip>
+
+### Required Fields Only
+
+Only **required** fields trigger review flags:
+
+```json
+{
+  "named_entities": {
+    "invoice_number": {"type": "string"},
+    "optional_notes": {"type": "string"}
+  },
+  "required": ["invoice_number"]  // Only this field can trigger review
+}
+```
+
+If `invoice_number` has low confidence → `needs_review = true`  
+If `optional_notes` has low confidence → No review needed
+
+## Response Structure
+
+### Without Review
+
+```json
+{
+  "document_id": "550e8400-e29b-41d4-a716-446655440000",
+  "results": {
+    "invoice_number": "INV-2024-001",
+    "total_amount": 1250.00
+  },
+  "needs_review": false,
+  "needs_review_metadata": {}
+}
+```
+
+✓ All required fields above threshold → Use `results` immediately
+
+### With Review
+
+```json
+{
+  "document_id": "550e8400-e29b-41d4-a716-446655440000",
+  "results": {
+    "invoice_number": "INV-2024-001",
+    "vendor_name": "Acme Corp",
+    "line_items": [
+      {"description": "Service A", "amount": 500},
+      {"description": "Service B", "amount": 750}
+    ]
+  },
+  "needs_review": true,
+  "needs_review_metadata": {
+    "confidence_scores": {
+      "invoice_number": 95.2,
+      "vendor_name": 88.5,
+      "line_items": {
+        "0": {"description": 92.1, "amount": 95.8},
+        "1": {"description": 72.3, "amount": 89.5}
+      }
+    },
+    "review_flags": {
+      "invoice_number": false,
+      "vendor_name": false,
+      "line_items": {
+        "0": {"description": false, "amount": false},
+        "1": {"description": true, "amount": false}
+      }
+    }
+  }
+}
+```
+
+⚠️ One field below threshold → Wait for human review before using data
+
+## Handling Reviews in Automation
+
+### Decision Flow
+
+```python
+def process_extraction(document_id, schema):
+    # Extract with Advanced mode
+    result = extract_data(
+        document_id, 
+        schema,
+        # Advanced mode - don't set model or extraction_mode 
+        review_threshold=85
+    )
+    
+    if result["needs_review"]:
+        # Option 1: Wait for review (polling)
+        reviewed_data = wait_for_review(document_id)
+        return reviewed_data
+    else:
+        # Option 2: Use immediate results
+        return result["results"]
+```
+
+### Three Approaches
+
+<Tabs>
+<Tab title="Polling (Recommended)">
+  **Best for**: Automation pipelines, background jobs
+  
+  Poll until `is_reviewed = true`:
+  
+  ```python
+  import time
+  
+  def wait_for_review(document_id, timeout=300):
+      start = time.time()
+      
+      while (time.time() - start) < timeout:
+          extraction = get_extraction_by_document(document_id)
+          
+          if extraction["is_reviewed"]:
+              return extraction["reviewed_results"]
+          
+          time.sleep(10)  # Poll every 10 seconds
+      
+      raise TimeoutError("Review timeout")
+  ```
+  
+  See [Polling Pattern](/api/review/polling-pattern) for details.
+</Tab>
+
+<Tab title="Webhook (Future)">
+  **Best for**: Event-driven architectures
+  
+  Receive notification when review is complete:
+  
+  ```python
+  # Configure webhook endpoint
+  webhook_config = {
+      "url": "https://your-app.com/webhooks/review-complete",
+      "events": ["review.completed"]
+  }
+  ```
+  
+  <Info>
+  Webhooks are planned for a future release.
+  </Info>
+</Tab>
+
+<Tab title="Manual Check">
+  **Best for**: Batch processing, scheduled jobs
+  
+  Check review status at specific times:
+  
+  ```python
+  # Morning: Extract documents
+  for doc in daily_documents:
+      extract_data(doc.id, schema)
+  
+  # Afternoon: Process reviewed documents
+  extractions = get_extractions(
+      is_reviewed=True,
+      created_after=today_start
+  )
+  
+  for extraction in extractions:
+      process_data(extraction["reviewed_results"])
+  ```
+</Tab>
+</Tabs>
+
+## Identifying Fields Needing Review
+
+Parse the `needs_review_metadata` to identify problematic fields:
+
+```python
+def find_low_confidence_fields(metadata, threshold=85, path=""):
+    """Recursively find fields below confidence threshold."""
+    low_confidence = []
+    
+    scores = metadata.get("confidence_scores", {})
+    flags = metadata.get("review_flags", {})
+    
+    for field, flag_value in flags.items():
+        current_path = f"{path}.{field}" if path else field
+        
+        if isinstance(flag_value, bool) and flag_value:
+            confidence = scores.get(field, 0)
+            low_confidence.append({
+                "field": current_path,
+                "confidence": confidence
+            })
+        elif isinstance(flag_value, dict):
+            # Recurse into nested structure
+            nested = find_low_confidence_fields(
+                {"confidence_scores": scores.get(field, {}),
+                 "review_flags": flag_value},
+                threshold,
+                current_path
+            )
+            low_confidence.extend(nested)
+    
+    return low_confidence
+
+# Usage
+if result["needs_review"]:
+    flagged = find_low_confidence_fields(result["needs_review_metadata"])
+    print(f"Fields needing review: {len(flagged)}")
+    for field in flagged:
+        print(f"  - {field['field']}: {field['confidence']:.1f}%")
+```
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="Set Appropriate Thresholds">
+  Match threshold to business risk:
+  
+  ```python
+  # Financial documents - strict
+  financial_config = {
+      "review_threshold": 90,
+      "required": ["amount", "account_number", "date"]
+  }
+  
+  # General documents - balanced
+  general_config = {
+      "review_threshold": 80,
+      "required": ["document_type", "reference_id"]
+  }
+  ```
+</Accordion>
+
+<Accordion title="Mark Critical Fields as Required">
+  Only flag fields that truly need verification:
+  
+  ```json
+  {
+    "named_entities": {
+      "invoice_number": {...},    // Critical
+      "total_amount": {...},       // Critical
+      "notes": {...}               // Not critical
+    },
+    "required": ["invoice_number", "total_amount"]
+  }
+  ```
+</Accordion>
+
+<Accordion title="Implement Timeout Handling">
+  Don't wait indefinitely for reviews:
+  
+  ```python
+  try:
+      reviewed = wait_for_review(doc_id, timeout=600)
+      process_data(reviewed)
+  except TimeoutError:
+      # Escalate or use original extraction
+      log_for_manual_processing(doc_id)
+  ```
+</Accordion>
+
+<Accordion title="Provide Context to Reviewers">
+  Include the original document and extraction prompt:
+  
+  ```python
+  review_request = {
+      "extraction_id": extraction_id,
+      "document_url": get_document_download_url(doc_id),
+      "prompt": extraction_config["prompt"],
+      "schema": extraction_config["schema"],
+      "flagged_fields": find_low_confidence_fields(metadata)
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Monitoring Review Metrics
+
+Track these metrics to optimize your review workflow:
+
+```python
+def calculate_review_metrics(extractions):
+    total = len(extractions)
+    needs_review = sum(1 for e in extractions if e["needs_review"])
+    reviewed = sum(1 for e in extractions if e["is_reviewed"])
+    
+    return {
+        "review_rate": needs_review / total * 100,
+        "completion_rate": reviewed / needs_review * 100 if needs_review > 0 else 0,
+        "avg_confidence": sum(
+            get_avg_confidence(e["needs_review_metadata"]) 
+            for e in extractions
+        ) / total
+    }
+```
+
+<Tip>
+Aim for a 15-25% review rate for most business documents. If higher, consider lowering your threshold or improving your schema descriptions.
+</Tip>
+
+## Common Scenarios
+
+### Scenario 1: All Fields High Confidence
+
+```json
+{
+  "needs_review": false,
+  "needs_review_metadata": {}
+}
+```
+
+**Action**: Use `results` immediately in your automation
+
+### Scenario 2: Optional Field Low Confidence
+
+```json
+{
+  "needs_review": false,  // No review needed
+  "needs_review_metadata": {
+    "confidence_scores": {"notes": 65.2},  // Low but not required
+    "review_flags": {"notes": false}
+  }
+}
+```
+
+**Action**: Use `results` immediately. Optional field doesn't trigger review.
+
+### Scenario 3: Required Field Low Confidence
+
+```json
+{
+  "needs_review": true,
+  "needs_review_metadata": {
+    "confidence_scores": {"invoice_number": 72.1},
+    "review_flags": {"invoice_number": true}
+  }
+}
+```
+
+**Action**: Poll for review completion, then use `reviewed_results`
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Polling Pattern" icon="rotate" href="/api/review/polling-pattern">
+  Implement robust polling for automation workflows
+</Card>
+
+<Card title="Update Extraction" icon="pen" href="/api/review/updating-extractions">
+  Manually update extraction results
+</Card>
+
+<Card title="List Pending Reviews" icon="list" href="/api/data/list-extractions">
+  Query extractions needing review
+</Card>
+</CardGroup>
+

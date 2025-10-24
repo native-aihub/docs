@@ -1,0 +1,30 @@
+---
+title: "Get Document"
+description: "Get document details and associated extractions"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/documents/{document_id}
+```
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the document |
+
+## Response
+
+```json
+{
+  "document_id": "doc-id",
+  "filename": "invoice.pdf",
+  "upload_date": "2024-01-15T10:00:00Z",
+  "file_size": 125000,
+  "num_pages": 3,
+  "extractions": [...]
+}
+```
+

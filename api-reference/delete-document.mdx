@@ -1,0 +1,35 @@
+---
+title: "Delete Document"
+description: "Delete a document and all its extractions"
+---
+
+## Endpoint
+
+```
+DELETE https://api.documind.cloud/api/v1/documents/{document_id}
+```
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the document |
+
+## Response
+
+```json
+{
+  "status": "success",
+  "message": "Document deleted successfully"
+}
+```
+
+## Example
+
+```python
+response = requests.delete(
+    f"https://api.documind.cloud/api/v1/documents/{document_id}",
+    headers={"X-API-Key": API_KEY}
+)
+```
+

@@ -1,0 +1,250 @@
+---
+title: "Upload Documents"
+description: "Upload one or more documents for processing"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/upload
+```
+
+## Authentication
+
+Requires `write:extractions` scope.
+
+## Request
+
+### Headers
+
+| Header | Value | Required |
+|--------|-------|----------|
+| `X-API-Key` | Your API key | Yes |
+
+### Body
+
+Form data with file uploads:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `files` | file | Yes | One or more files to upload (can repeat for multiple files) |
+
+### Supported File Types
+
+- **PDF**: `.pdf`
+- **Word**: `.docx`
+- **Images**: `.jpg`, `.jpeg`, `.png`, `.tiff`
+
+### File Size Limits
+
+- Maximum file size: 50 MB per file
+- Maximum files per request: 10 files
+
+## Response
+
+### Success Response (200)
+
+Returns an array of document IDs:
+
+```json
+[
+  "123e4567-e89b-12d3-a456-426614174000",
+  "223e4567-e89b-12d3-a456-426614174001"
+]
+```
+
+## Examples
+
+<CodeGroup>
+```python Python
+import requests
+
+API_KEY = "your_api_key_here"
+headers = {"X-API-Key": API_KEY}
+
+# Upload single file
+with open("invoice.pdf", "rb") as f:
+    files = {"files": f}
+    response = requests.post(
+        "https://api.documind.cloud/api/v1/upload",
+        headers=headers,
+        files=files
+    )
+
+document_ids = response.json()
+print(f"Uploaded document: {document_ids[0]}")
+
+# Upload multiple files
+files = [
+    ("files", open("invoice1.pdf", "rb")),
+    ("files", open("invoice2.pdf", "rb")),
+    ("files", open("invoice3.pdf", "rb"))
+]
+
+response = requests.post(
+    "https://api.documind.cloud/api/v1/upload",
+    headers=headers,
+    files=files
+)
+
+document_ids = response.json()
+print(f"Uploaded {len(document_ids)} documents")
+
+# Close files
+for _, f in files:
+    f.close()
+```
+
+```javascript Node.js
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
+const API_KEY = 'your_api_key_here';
+
+// Upload single file
+const form = new FormData();
+form.append('files', fs.createReadStream('invoice.pdf'));
+
+const response = await axios.post(
+  'https://api.documind.cloud/api/v1/upload',
+  form,
+  {
+    headers: {
+      ...form.getHeaders(),
+      'X-API-Key': API_KEY
+    }
+  }
+);
+
+const documentIds = response.data;
+console.log(`Uploaded document: ${documentIds[0]}`);
+
+// Upload multiple files
+const multiForm = new FormData();
+multiForm.append('files', fs.createReadStream('invoice1.pdf'));
+multiForm.append('files', fs.createReadStream('invoice2.pdf'));
+multiForm.append('files', fs.createReadStream('invoice3.pdf'));
+
+const multiResponse = await axios.post(
+  'https://api.documind.cloud/api/v1/upload',
+  multiForm,
+  {
+    headers: {
+      ...multiForm.getHeaders(),
+      'X-API-Key': API_KEY
+    }
+  }
+);
+
+console.log(`Uploaded ${multiResponse.data.length} documents`);
+```
+
+```bash cURL
+# Upload single file
+curl -X POST https://api.documind.cloud/api/v1/upload \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "files=@invoice.pdf"
+
+# Upload multiple files
+curl -X POST https://api.documind.cloud/api/v1/upload \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "files=@invoice1.pdf" \
+  -F "files=@invoice2.pdf" \
+  -F "files=@invoice3.pdf"
+```
+</CodeGroup>
+
+## Error Responses
+
+### 400 Bad Request
+
+Invalid file type or size:
+
+```json
+{
+  "detail": "Unsupported file type. Supported types: pdf, docx, jpg, jpeg, png, tiff"
+}
+```
+
+### 401 Unauthorized
+
+Missing or invalid API key:
+
+```json
+{
+  "detail": "Invalid or missing API key"
+}
+```
+
+### 413 Payload Too Large
+
+File exceeds size limit:
+
+```json
+{
+  "detail": "File size exceeds 50 MB limit"
+}
+```
+
+### 500 Internal Server Error
+
+Server error during upload:
+
+```json
+{
+  "detail": "Failed to upload documents. Please try again later."
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+<Accordion title="Batch Upload for Efficiency">
+  Upload multiple files in a single request instead of making multiple requests. This is faster and more efficient.
+</Accordion>
+
+<Accordion title="Check File Size Before Upload">
+  Validate file sizes client-side to avoid failed uploads and improve user experience.
+</Accordion>
+
+<Accordion title="Handle Upload Errors">
+  Implement retry logic with exponential backoff for failed uploads, especially for large files.
+</Accordion>
+
+<Accordion title="Store Document IDs">
+  Save the returned document IDs for future extraction requests. Document IDs are permanent and can be used repeatedly.
+</Accordion>
+</AccordionGroup>
+
+## Rate Limits
+
+Upload endpoint is subject to rate limits based on your subscription tier. Contact support for higher limits.
+
+## Notes
+
+- Uploaded documents are stored securely and retained for 90 days
+- Document IDs are permanent and don't change
+- Multiple uploads of the same file (within 5 minutes) return the same document ID
+- Files are automatically processed for OCR and layout analysis
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Extract Data" icon="brain" href="/api-reference/extract">
+  Extract structured data from uploaded documents
+</Card>
+
+<Card title="Generate Schema" icon="wand-magic-sparkles" href="/api-reference/generate-schema">
+  Auto-generate extraction schema from document
+</Card>
+
+<Card title="List Documents" icon="list" href="/api-reference/list-documents">
+  View all uploaded documents
+</Card>
+
+<Card title="Upload Guide" icon="book" href="/api/extraction/upload-documents">
+  Detailed upload workflow guide
+</Card>
+</CardGroup>
+

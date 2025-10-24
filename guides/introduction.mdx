@@ -1,0 +1,144 @@
+---
+title: "Introduction to Documind"
+description: "Intelligent document extraction for automation workflows"
+---
+
+## What is Documind?
+
+Documind is an AI-powered document extraction platform that transforms unstructured documents into structured data. Whether you're processing invoices, forms, receipts, or contracts, Documind uses advanced LLM models to extract information accurately and efficiently.
+
+## Key Features
+
+<CardGroup cols={2}>
+<Card title="Multi-Model Extraction" icon="brain">
+  Choose from Basic (single-model), VLM-based, or Advanced (multi-model ensemble) extraction modes for different accuracy and cost trade-offs.
+</Card>
+
+<Card title="Flexible Schemas" icon="diagram-project">
+  Define custom schemas, use predefined templates, or let Documind generate schemas automatically from sample documents.
+</Card>
+
+<Card title="Confidence Scoring" icon="gauge-high">
+  Every extracted field includes confidence scores. Low-confidence fields are automatically flagged for human review.
+</Card>
+
+<Card title="Review Workflow" icon="user-check">
+  Built-in review system enables human-in-the-loop validation for critical data, ensuring accuracy when it matters most.
+</Card>
+
+<Card title="Credit-Based Pricing" icon="coins">
+  Transparent per-page pricing with different costs for each extraction mode. No surprises.
+</Card>
+
+<Card title="Developer-First API" icon="code">
+  RESTful API with comprehensive documentation, code examples, and SDKs for seamless integration.
+</Card>
+</CardGroup>
+
+## How Documind Works
+
+<Steps>
+<Step title="Upload Documents">
+  Upload PDF, Word, or image files to Documind. Each document receives a unique ID for tracking.
+</Step>
+
+<Step title="Define What to Extract">
+  Specify the data you need using JSON Schema format. Use predefined schemas, generate from samples, or create custom ones.
+</Step>
+
+<Step title="Choose Extraction Mode">
+  Select the extraction mode that fits your needs:
+  - **Basic**: Fast single-model extraction
+  - **VLM**: Vision-optimized for image-heavy documents
+  - **Advanced**: Multi-model ensemble with confidence scoring
+</Step>
+
+<Step title="Get Structured Data">
+  Receive extracted data as JSON with confidence scores. Low-confidence fields are flagged for review if using Advanced mode.
+</Step>
+
+<Step title="Review if Needed">
+  For extractions flagged for review, humans verify and correct the data. Reviewed results replace initial extractions.
+</Step>
+</Steps>
+
+## Extraction Modes Comparison
+
+| Feature | Basic | VLM | Advanced |
+|---------|-------|-----|----------|
+| **Speed** | Fastest | Fast | Moderate |
+| **Cost per page** | 2-6 credits | 10 credits | 15 credits |
+| **Confidence scores** | No | No | Yes |
+| **Review flagging** | No | No | Yes |
+| **Best for** | Simple documents | Scanned images | Complex forms |
+| **Models** | Single (your choice) | Multiple VLMs | Multi-model ensemble |
+
+## Common Use Cases
+
+### Invoice Processing
+Extract line items, totals, vendor information, dates, and payment terms from invoices in any format.
+
+### Form Digitization
+Convert paper forms, applications, and surveys into structured database entries.
+
+### Receipt Management
+Pull amounts, merchants, dates, and categories from receipts for expense tracking.
+
+### Contract Analysis
+Extract key terms, parties, dates, and obligations from legal documents.
+
+### Identity Verification
+Extract information from IDs, passports, and verification documents.
+
+## Architecture Overview
+
+```
+┌─────────────┐
+│   Upload    │  POST /api/v1/upload
+│  Documents  │  → Returns document_id(s)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│   Extract   │  POST /api/v1/extract/{document_id}
+│    Data     │  → Returns results + needs_review flag
+└──────┬──────┘
+       │
+       ├──► needs_review = false
+       │    ✓ Use results immediately
+       │
+       └──► needs_review = true
+            ↓ Human reviews and corrects
+            ↓ PUT /api/v1/review/{document_id}
+            ↓
+            ✓ Poll GET /api/v1/data/extractions?document_id=...
+              until is_reviewed = true
+```
+
+## Getting Started
+
+<CardGroup cols={2}>
+<Card title="Quick Start" icon="rocket" href="/guides/quickstart">
+  Get started with your first extraction in 5 minutes
+</Card>
+
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Learn how to create effective extraction schemas
+</Card>
+
+<Card title="API Reference" icon="book" href="/api-reference/introduction">
+  Explore all available endpoints and parameters
+</Card>
+
+<Card title="Tutorials" icon="graduation-cap" href="/guides/tutorials/invoice-processing">
+  Step-by-step tutorials for common use cases
+</Card>
+</CardGroup>
+
+## Next Steps
+
+1. **[Try the Quick Start Guide](/guides/quickstart)** - Extract your first document in 5 minutes
+2. **[Explore Use Case Tutorials](/guides/tutorials/invoice-processing)** - Learn from real-world examples
+3. **[Design Effective Schemas](/guides/schema-design)** - Master schema creation for better results
+4. **[Integrate with Your App](/api/quickstart)** - Build production-ready integrations
+

@@ -1,0 +1,55 @@
+---
+title: "Get Credits"
+description: "Get current credit balance and information"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/usage/credits
+```
+
+## Authentication
+
+Requires `read:usage` scope.
+
+## Response
+
+```json
+{
+  "user_id": "user-id",
+  "total_credits": 1000,
+  "available_credits": 750,
+  "lifetime_credits": 5000,
+  "is_credit_limited": false,
+  "alert_threshold": 100,
+  "subscription_tier": "Professional",
+  "last_daily_refresh": "2024-01-15T00:00:00Z",
+  "last_credit_update": "2024-01-15T14:30:00Z"
+}
+```
+
+## Examples
+
+<CodeGroup>
+```python Python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/usage/credits",
+    headers={"X-API-Key": API_KEY}
+)
+
+credits = response.json()
+print(f"Available: {credits['available_credits']}")
+print(f"Total: {credits['total_credits']}")
+```
+
+```javascript Node.js
+const response = await axios.get(
+  'https://api.documind.cloud/api/v1/usage/credits',
+  { headers: { 'X-API-Key': API_KEY } }
+);
+
+console.log(`Available: ${response.data.available_credits}`);
+```
+</CodeGroup>
+

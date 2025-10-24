@@ -1,0 +1,356 @@
+---
+title: "Form Extraction Tutorial"
+description: "Extract data from forms and applications"
+---
+
+## Overview
+
+This tutorial covers extracting data from forms, applications, and surveys. Forms have structured layouts but varying formats - learn how to handle them all.
+
+## Common Form Types
+
+- Employment applications
+- Insurance claim forms
+- Survey responses
+- Registration forms
+- Tax forms
+- Medical intake forms
+
+## Step 1: Analyze Form Structure
+
+Before creating a schema, identify the form sections:
+
+```
+┌────────────────────────────┐
+│ Applicant Information      │
+│  - Name (First, Last)      │
+│  - Date of Birth           │
+│  - SSN                     │
+├────────────────────────────┤
+│ Contact Information        │
+│  - Address                 │
+│  - Phone                   │
+│  - Email                   │
+├────────────────────────────┤
+│ Employment                 │
+│  - Current Employer        │
+│  - Position                │
+│  - Annual Income           │
+├────────────────────────────┤
+│ Signature and Date         │
+└────────────────────────────┘
+```
+
+## Step 2: Create Form Schema
+
+Build a schema matching the form structure:
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "applicant": {
+      "type": "object",
+      "description": "Applicant personal information",
+      "named_entities": {
+        "first_name": {"type": "string", "description": "First name"},
+        "last_name": {"type": "string", "description": "Last name"},
+        "middle_initial": {"type": "string", "description": "Middle initial"},
+        "date_of_birth": {"type": "string", "format": "date"},
+        "ssn": {
+          "type": "string",
+          "description": "Social Security Number in format XXX-XX-XXXX",
+          "pattern": "^\\d{3}-\\d{2}-\\d{4}$"
+        }
+      },
+      "required": ["first_name", "last_name", "date_of_birth"]
+    },
+    "contact": {
+      "type": "object",
+      "description": "Contact information",
+      "named_entities": {
+        "street_address": {"type": "string"},
+        "city": {"type": "string"},
+        "state": {"type": "string"},
+        "zip_code": {"type": "string", "pattern": "^\\d{5}(-\\d{4})?$"},
+        "phone": {"type": "string"},
+        "email": {"type": "string", "format": "email"}
+      },
+      "required": ["street_address", "city", "state", "zip_code"]
+    },
+    "employment": {
+      "type": "object",
+      "description": "Employment information",
+      "named_entities": {
+        "employer_name": {"type": "string"},
+        "position": {"type": "string"},
+        "start_date": {"type": "string", "format": "date"},
+        "annual_income": {"type": "number"}
+      }
+    },
+    "checkboxes": {
+      "type": "object",
+      "description": "Checkbox selections on the form",
+      "named_entities": {
+        "us_citizen": {"type": "boolean"},
+        "background_check_consent": {"type": "boolean"},
+        "terms_accepted": {"type": "boolean"}
+      }
+    },
+    "signature_date": {"type": "string", "format": "date"},
+    "signature_present": {
+      "type": "boolean",
+      "description": "Whether a signature is present on the form"
+    }
+  },
+  "required": ["applicant", "contact", "signature_date"]
+}
+```
+
+## Step 3: Craft Form-Specific Prompt
+
+```python
+FORM_EXTRACTION_PROMPT = """
+Extract form data carefully, preserving field names and values exactly as written.
+
+Instructions:
+- For multi-part names, extract first_name, last_name, and middle_initial separately
+- For checkboxes, return true if checked/marked, false if empty/unchecked
+- For dates, use YYYY-MM-DD format
+- For address fields, separate street, city, state, and ZIP code
+- Phone numbers: extract digits only, no formatting
+- SSN: format as XXX-XX-XXXX
+- If a field is blank/not filled in, return null
+- Signature present: true if any signature or mark is visible in signature area
+
+Pay special attention to:
+- Handwritten entries may be unclear - use best judgment
+- Checkbox marks can be X, checkmark, or filled box
+- Date formats vary - normalize to YYYY-MM-DD
+"""
+```
+
+## Step 4: Handle Checkboxes and Radio Buttons
+
+```python
+def normalize_checkbox_values(data: dict) -> dict:
+    """Normalize checkbox/radio button values"""
+    if "checkboxes" in data:
+        for key, value in data["checkboxes"].items():
+            # Convert various truthy values to boolean
+            if isinstance(value, str):
+                value_lower = value.lower()
+                if value_lower in ["yes", "y", "true", "checked", "x"]:
+                    data["checkboxes"][key] = True
+                elif value_lower in ["no", "n", "false", "unchecked", ""]:
+                    data["checkboxes"][key] = False
+    
+    return data
+```
+
+## Step 5: Validate Form Data
+
+```python
+import re
+from datetime import datetime
+
+def validate_form_data(data: dict) -> tuple[bool, list]:
+    """Validate extracted form data"""
+    errors = []
+    
+    # Validate SSN format
+    if "applicant" in data and "ssn" in data["applicant"]:
+        ssn = data["applicant"]["ssn"]
+        if ssn and not re.match(r'^\d{3}-\d{2}-\d{4}$', ssn):
+            errors.append(f"Invalid SSN format: {ssn}")
+    
+    # Validate email
+    if "contact" in data and "email" in data["contact"]:
+        email = data["contact"]["email"]
+        if email and not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            errors.append(f"Invalid email format: {email}")
+    
+    # Validate ZIP code
+    if "contact" in data and "zip_code" in data["contact"]:
+        zip_code = data["contact"]["zip_code"]
+        if zip_code and not re.match(r'^\d{5}(-\d{4})?$', zip_code):
+            errors.append(f"Invalid ZIP code: {zip_code}")
+    
+    # Validate dates
+    if "applicant" in data and "date_of_birth" in data["applicant"]:
+        try:
+            dob = datetime.fromisoformat(data["applicant"]["date_of_birth"])
+            if dob > datetime.now():
+                errors.append("Date of birth is in the future")
+        except (ValueError, TypeError):
+            errors.append("Invalid date of birth format")
+    
+    # Validate signature
+    if not data.get("signature_present"):
+        errors.append("Form is not signed")
+    
+    return len(errors) == 0, errors
+```
+
+## Step 6: Process Form with Validation
+
+```python
+class FormProcessor:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.documind.cloud/api/v1"
+        self.headers = {"X-API-Key": api_key}
+    
+    def process_form(self, file_path: str) -> dict:
+        """Process form with validation"""
+        # Upload
+        document_id = self.upload_document(file_path)
+        
+        # Extract using Advanced mode for better accuracy on forms
+        result = self.extract_form(document_id)
+        
+        # Normalize checkbox values
+        data = normalize_checkbox_values(result["results"])
+        
+        # Validate
+        is_valid, errors = validate_form_data(data)
+        
+        if not is_valid:
+            logger.warning(f"Form validation errors: {errors}")
+            # Flag for manual review
+            return {
+                "document_id": document_id,
+                "data": data,
+                "valid": False,
+                "errors": errors,
+                "requires_manual_review": True
+            }
+        
+        return {
+            "document_id": document_id,
+            "data": data,
+            "valid": True,
+            "requires_manual_review": result.get("needs_review", False)
+        }
+
+# Usage
+processor = FormProcessor(api_key="your_key")
+result = processor.process_form("application.pdf")
+
+if result["valid"]:
+    print("Form is valid and complete")
+    # Process the application
+    process_application(result["data"])
+else:
+    print(f"Form has errors: {result['errors']}")
+    # Send for manual review
+```
+
+## Handling Handwritten Forms
+
+For forms with handwritten text:
+
+```python
+# Use VLM mode for better handwriting recognition
+result = requests.post(
+    f"{BASE_URL}/extract/{document_id}",
+    headers=headers,
+    json={
+        "schema": form_schema,
+        "extraction_mode": "vlm",  # Better for handwritten text
+        "review_threshold": 70,     # Lower threshold for handwritten
+        "prompt": """
+        This form contains handwritten text.
+        Extract carefully, noting that handwriting may be unclear.
+        For unclear fields, make your best interpretation.
+        Mark fields with low confidence for review.
+        """
+    }
+)
+```
+
+## Common Form Patterns
+
+### Multi-Select Checkboxes
+
+```json
+{
+  "interests": {
+    "type": "array",
+    "description": "Selected interest categories (can be multiple)",
+    "items": {
+      "type": "string",
+      "enum": ["Sports", "Music", "Travel", "Reading", "Technology"]
+    }
+  }
+}
+```
+
+### Conditional Fields
+
+```json
+{
+  "has_previous_employment": {
+    "type": "boolean",
+    "description": "Whether applicant has previous employment"
+  },
+  "previous_employer": {
+    "type": "string",
+    "description": "Previous employer name (only if has_previous_employment is true)"
+  }
+}
+```
+
+### Tables in Forms
+
+```json
+{
+  "employment_history": {
+    "type": "array",
+    "description": "Employment history table",
+    "items": {
+      "type": "object",
+      "named_entities": {
+        "employer": {"type": "string"},
+        "position": {"type": "string"},
+        "start_date": {"type": "string"},
+        "end_date": {"type": "string"},
+        "reason_for_leaving": {"type": "string"}
+      }
+    },
+    "maxItems": 5
+  }
+}
+```
+
+## Best Practices
+
+<Card title="Form-Specific Tips" icon="lightbulb">
+- Use Advanced mode for complex forms with review workflow
+- Set lower review thresholds (70-75%) for handwritten forms
+- Validate extracted data against business rules
+- Keep checkbox schemas flat for easier processing
+- Use pattern validation for structured fields (SSN, phone, ZIP)
+- Test with various form styles and qualities
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Invoice Processing" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  Extract invoice data
+</Card>
+
+<Card title="Batch Processing" icon="layer-group" href="/guides/tutorials/batch-processing">
+  Process forms at scale
+</Card>
+
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Master schema patterns
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+  Handle validation errors
+</Card>
+</CardGroup>
+

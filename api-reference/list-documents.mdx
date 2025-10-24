@@ -1,0 +1,37 @@
+---
+title: "List Documents"
+description: "List all uploaded documents"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/documents
+```
+
+## Response
+
+```json
+[
+  {
+    "document_id": "doc-id-1",
+    "filename": "invoice.pdf"
+  },
+  {
+    "document_id": "doc-id-2",
+    "filename": "receipt.jpg"
+  }
+]
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/documents",
+    headers={"X-API-Key": API_KEY}
+)
+
+documents = response.json()
+```
+

@@ -1,0 +1,30 @@
+---
+title: "List API Keys"
+description: "List all API keys for your account"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/auth/api-keys
+```
+
+## Response
+
+```json
+[
+  {
+    "id": "key-id",
+    "name": "Production Key",
+    "prefix": "abc12345",
+    "scopes": ["read:extractions", "write:extractions"],
+    "is_active": true,
+    "created_at": "2024-01-15T10:00:00Z"
+  }
+]
+```
+
+<Note>
+Full API keys are never returned in list responses, only the prefix.
+</Note>
+

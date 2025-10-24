@@ -1,0 +1,654 @@
+---
+title: "Schema Design Guide"
+description: "Best practices for creating effective extraction schemas"
+---
+
+## Introduction
+
+A well-designed schema is crucial for accurate data extraction. This guide covers best practices, patterns, and anti-patterns for creating schemas that get the best results from Documind.
+
+## Schema Structure Basics
+
+### Minimum Viable Schema
+
+Start simple and iterate:
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "field_name": {
+      "type": "string",
+      "description": "Clear description of what this field contains"
+    }
+  },
+  "required": ["critical_field"]
+}
+```
+
+### Complete Schema Template
+
+A production-ready schema with all recommended fields:
+
+```json
+{
+  "type": "object",
+  "title": "Invoice Schema",
+  "description": "Schema for extracting invoice data",
+  "named_entities": {
+    "invoice_number": {
+      "type": "string",
+      "description": "The unique invoice identifier (e.g., INV-2024-001)",
+      "pattern": "^INV-\\d{4}-\\d{3}$"
+    },
+    "invoice_date": {
+      "type": "string",
+      "description": "Invoice date in YYYY-MM-DD format",
+      "format": "date"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total invoice amount in USD",
+      "minimum": 0
+    }
+  },
+  "required": ["invoice_number", "invoice_date", "total_amount"]
+}
+```
+
+## Best Practices
+
+### 1. Write Descriptive Field Names
+
+<Tabs>
+<Tab title="❌ Bad">
+```json
+{
+  "num": {"type": "string"},
+  "amt": {"type": "number"},
+  "dt": {"type": "string"}
+}
+```
+</Tab>
+
+<Tab title="✅ Good">
+```json
+{
+  "invoice_number": {"type": "string"},
+  "total_amount": {"type": "number"},
+  "invoice_date": {"type": "string"}
+}
+```
+</Tab>
+</Tabs>
+
+**Why:** Descriptive names help the AI understand what to extract and make your code more maintainable.
+
+### 2. Always Include Descriptions
+
+<Tabs>
+<Tab title="❌ Bad">
+```json
+{
+  "vendor_name": {
+    "type": "string"
+  }
+}
+```
+</Tab>
+
+<Tab title="✅ Good">
+```json
+{
+  "vendor_name": {
+    "type": "string",
+    "description": "The name of the vendor or supplier who issued the invoice"
+  }
+}
+```
+</Tab>
+</Tabs>
+
+**Why:** Descriptions provide crucial context that improves extraction accuracy, especially for ambiguous fields.
+
+### 3. Use Specific Field Descriptions
+
+<Tabs>
+<Tab title="❌ Vague">
+```json
+{
+  "date": {
+    "type": "string",
+    "description": "A date"
+  }
+}
+```
+</Tab>
+
+<Tab title="✅ Specific">
+```json
+{
+  "invoice_date": {
+    "type": "string",
+    "description": "The date the invoice was issued, in MM/DD/YYYY format",
+    "format": "date"
+  }
+}
+```
+</Tab>
+</Tabs>
+
+**Why:** Specific descriptions reduce ambiguity when documents contain multiple dates.
+
+### 4. Specify Data Types Correctly
+
+```json
+{
+  "quantity": {
+    "type": "number",           // Not "string"
+    "description": "Quantity ordered"
+  },
+  "is_paid": {
+    "type": "boolean",          // Not "string"
+    "description": "Payment status"
+  },
+  "due_date": {
+    "type": "string",
+    "format": "date",           // Specify format
+    "description": "Payment due date"
+  }
+}
+```
+
+### 5. Use Constraints and Validation
+
+Add constraints to catch errors early:
+
+```json
+{
+  "total_amount": {
+    "type": "number",
+    "description": "Total invoice amount",
+    "minimum": 0,               // No negative amounts
+    "maximum": 1000000          // Sanity check
+  },
+  "email": {
+    "type": "string",
+    "description": "Contact email",
+    "format": "email"           // Email validation
+  },
+  "invoice_number": {
+    "type": "string",
+    "description": "Invoice number",
+    "pattern": "^INV-\\d+$"    // Must match pattern
+  }
+}
+```
+
+### 6. Mark Critical Fields as Required
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "invoice_number": {"type": "string"},
+    "total_amount": {"type": "number"},
+    "notes": {"type": "string"}        // Optional
+  },
+  "required": ["invoice_number", "total_amount"]  // Only critical fields
+}
+```
+
+**Why:** Required fields are flagged for review if confidence is low, ensuring accuracy where it matters most.
+
+## Working with Arrays
+
+### Simple Arrays
+
+For lists of primitive values:
+
+```json
+{
+  "product_names": {
+    "type": "array",
+    "description": "List of product names mentioned",
+    "items": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### Array of Objects (Tables)
+
+For structured lists like line items:
+
+```json
+{
+  "line_items": {
+    "type": "array",
+    "description": "Invoice line items",
+    "items": {
+      "type": "object",
+      "named_entities": {
+        "description": {
+          "type": "string",
+          "description": "Product or service description"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity ordered"
+        },
+        "unit_price": {
+          "type": "number",
+          "description": "Price per unit"
+        },
+        "total": {
+          "type": "number",
+          "description": "Line total (quantity × unit_price)"
+        }
+      },
+      "required": ["description", "quantity", "unit_price"]
+    }
+  }
+}
+```
+
+### Array Constraints
+
+Limit array size for better performance:
+
+```json
+{
+  "line_items": {
+    "type": "array",
+    "minItems": 1,              // At least one item
+    "maxItems": 100,            // No more than 100
+    "items": {...}
+  }
+}
+```
+
+## Working with Nested Objects
+
+### Simple Nesting
+
+Group related fields:
+
+```json
+{
+  "vendor": {
+    "type": "object",
+    "description": "Vendor information",
+    "named_entities": {
+      "name": {
+        "type": "string",
+        "description": "Vendor company name"
+      },
+      "address": {
+        "type": "string",
+        "description": "Vendor mailing address"
+      },
+      "tax_id": {
+        "type": "string",
+        "description": "Vendor tax ID number"
+      }
+    },
+    "required": ["name"]
+  }
+}
+```
+
+### Deep Nesting
+
+For complex structures:
+
+```json
+{
+  "customer": {
+    "type": "object",
+    "description": "Customer information",
+    "named_entities": {
+      "company": {
+        "type": "object",
+        "description": "Company details",
+        "named_entities": {
+          "name": {"type": "string"},
+          "address": {
+            "type": "object",
+            "named_entities": {
+              "street": {"type": "string"},
+              "city": {"type": "string"},
+              "state": {"type": "string"},
+              "zip": {"type": "string"}
+            }
+          }
+        }
+      },
+      "contact": {
+        "type": "object",
+        "description": "Contact person",
+        "named_entities": {
+          "name": {"type": "string"},
+          "email": {"type": "string"},
+          "phone": {"type": "string"}
+        }
+      }
+    }
+  }
+}
+```
+
+<Warning>
+Avoid nesting deeper than 3-4 levels. Consider flattening or splitting into multiple extractions for very complex schemas.
+</Warning>
+
+## Common Patterns
+
+### Invoice Schema
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "invoice_number": {"type": "string", "description": "Invoice number"},
+    "invoice_date": {"type": "string", "description": "Invoice date"},
+    "due_date": {"type": "string", "description": "Payment due date"},
+    "vendor": {
+      "type": "object",
+      "named_entities": {
+        "name": {"type": "string"},
+        "address": {"type": "string"}
+      }
+    },
+    "customer": {
+      "type": "object",
+      "named_entities": {
+        "name": {"type": "string"},
+        "address": {"type": "string"}
+      }
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "named_entities": {
+          "description": {"type": "string"},
+          "quantity": {"type": "number"},
+          "unit_price": {"type": "number"},
+          "total": {"type": "number"}
+        }
+      }
+    },
+    "subtotal": {"type": "number"},
+    "tax": {"type": "number"},
+    "total": {"type": "number"}
+  },
+  "required": ["invoice_number", "total"]
+}
+```
+
+### Receipt Schema
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "merchant_name": {"type": "string", "description": "Store or restaurant name"},
+    "transaction_date": {"type": "string", "description": "Transaction date"},
+    "transaction_time": {"type": "string", "description": "Transaction time"},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "named_entities": {
+          "name": {"type": "string"},
+          "price": {"type": "number"}
+        }
+      }
+    },
+    "subtotal": {"type": "number"},
+    "tax": {"type": "number"},
+    "tip": {"type": "number"},
+    "total": {"type": "number"},
+    "payment_method": {"type": "string", "description": "Payment method used"}
+  },
+  "required": ["merchant_name", "total"]
+}
+```
+
+### Form Schema
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "applicant": {
+      "type": "object",
+      "named_entities": {
+        "first_name": {"type": "string"},
+        "last_name": {"type": "string"},
+        "date_of_birth": {"type": "string", "format": "date"},
+        "ssn": {"type": "string", "pattern": "^\\d{3}-\\d{2}-\\d{4}$"}
+      }
+    },
+    "address": {
+      "type": "object",
+      "named_entities": {
+        "street": {"type": "string"},
+        "city": {"type": "string"},
+        "state": {"type": "string"},
+        "zip": {"type": "string"}
+      }
+    },
+    "employment": {
+      "type": "object",
+      "named_entities": {
+        "employer_name": {"type": "string"},
+        "position": {"type": "string"},
+        "annual_income": {"type": "number"}
+      }
+    },
+    "signature_date": {"type": "string"},
+    "agreed_to_terms": {"type": "boolean"}
+  },
+  "required": ["applicant", "signature_date"]
+}
+```
+
+## Advanced Techniques
+
+### Enums for Categorical Data
+
+Constrain values to specific options:
+
+```json
+{
+  "payment_status": {
+    "type": "string",
+    "description": "Current payment status",
+    "enum": ["Paid", "Pending", "Overdue", "Cancelled"]
+  },
+  "payment_method": {
+    "type": "string",
+    "description": "Payment method",
+    "enum": ["Credit Card", "Check", "Wire Transfer", "Cash"]
+  }
+}
+```
+
+### Conditional Fields
+
+Use `oneOf` for alternative structures:
+
+```json
+{
+  "payment_details": {
+    "oneOf": [
+      {
+        "type": "object",
+        "named_entities": {
+          "payment_type": {"const": "credit_card"},
+          "card_last_four": {"type": "string"}
+        }
+      },
+      {
+        "type": "object",
+        "named_entities": {
+          "payment_type": {"const": "check"},
+          "check_number": {"type": "string"}
+        }
+      }
+    ]
+  }
+}
+```
+
+### Examples in Descriptions
+
+Include examples to guide extraction:
+
+```json
+{
+  "invoice_number": {
+    "type": "string",
+    "description": "Invoice number (e.g., INV-2024-001, INV-2024-002)"
+  },
+  "phone": {
+    "type": "string",
+    "description": "Phone number in format (123) 456-7890 or 123-456-7890"
+  }
+}
+```
+
+## Common Mistakes
+
+### ❌ Too Many Optional Fields
+
+```json
+{
+  "field1": {"type": "string"},
+  "field2": {"type": "string"},
+  // ... 50 more optional fields
+  "required": []  // Nothing required!
+}
+```
+
+**Problem:** Review workflow won't trigger even for poor extractions.  
+**Solution:** Mark at least 2-3 critical fields as required.
+
+### ❌ Ambiguous Field Names
+
+```json
+{
+  "date": {"type": "string"},  // Which date?
+  "amount": {"type": "number"},  // Amount of what?
+  "number": {"type": "string"}  // What number?
+}
+```
+
+**Problem:** AI may extract the wrong data.  
+**Solution:** Use specific names: `invoice_date`, `total_amount`, `invoice_number`.
+
+### ❌ Missing Descriptions
+
+```json
+{
+  "tax_id": {"type": "string"}
+  // No description!
+}
+```
+
+**Problem:** AI may confuse similar fields.  
+**Solution:** Always include descriptions.
+
+### ❌ Wrong Data Types
+
+```json
+{
+  "quantity": {"type": "string"},  // Should be number
+  "is_paid": {"type": "string"}    // Should be boolean
+}
+```
+
+**Problem:** You'll get strings like "5" instead of numbers, making calculations fail.  
+**Solution:** Use correct types.
+
+### ❌ Overly Complex Schemas
+
+```json
+{
+  "deeply": {
+    "nested": {
+      "structure": {
+        "with": {
+          "many": {
+            "levels": {...}  // 6+ levels deep
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Problem:** Harder to extract accurately, slower processing.  
+**Solution:** Flatten or split into multiple extractions.
+
+## Schema Testing
+
+### Iterative Development
+
+1. **Start simple**: Extract only 2-3 fields
+2. **Test**: Run on sample documents
+3. **Validate**: Check accuracy
+4. **Expand**: Add more fields
+5. **Repeat**: Until all needed data is extracted
+
+### A/B Testing
+
+Test different schema approaches:
+
+```python
+# Version A: Flat structure
+schema_a = {
+  "vendor_name": {"type": "string"},
+  "vendor_address": {"type": "string"}
+}
+
+# Version B: Nested structure
+schema_b = {
+  "vendor": {
+    "type": "object",
+    "named_entities": {
+      "name": {"type": "string"},
+      "address": {"type": "string"}
+    }
+  }
+}
+
+# Compare results
+results_a = extract(document_id, schema_a)
+results_b = extract(document_id, schema_b)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Prompt Design" icon="message" href="/guides/prompt-design">
+  Optimize extraction prompts for better results
+</Card>
+
+<Card title="Invoice Tutorial" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  Apply schema design to invoice processing
+</Card>
+
+<Card title="Core Concepts" icon="book" href="/guides/core-concepts">
+  Understand schemas in the context of Documind
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/extract">
+  See the extraction API documentation
+</Card>
+</CardGroup>
+

@@ -1,0 +1,443 @@
+---
+title: "Core Concepts"
+description: "Understanding Documind's key concepts and workflows"
+---
+
+## Documents and Extractions
+
+### Documents
+
+A **document** is any file you upload to Documind for processing. Supported formats include:
+- PDF files
+- Microsoft Word documents (.docx)
+- Images (JPEG, PNG, TIFF)
+
+Each uploaded document receives a unique `document_id` that you use for all subsequent operations.
+
+```json
+// Upload response
+["123e4567-e89b-12d3-a456-426614174000"]
+```
+
+### Extractions
+
+An **extraction** is a single processing job that extracts structured data from a document using a specific schema. Each extraction:
+- Belongs to one document
+- Uses one schema
+- Can be in different states: `pending`, `processing`, `completed`, `failed`
+- May require review depending on confidence scores
+
+You can perform multiple extractions on the same document using different schemas.
+
+## Schemas
+
+A **schema** defines what data to extract from documents. Schemas use a JSON Schema-like format with a special `named_entities` field for the data you want.
+
+### Basic Schema Structure
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "field_name": {
+      "type": "string",
+      "description": "What this field represents"
+    }
+  },
+  "required": ["field_name"]
+}
+```
+
+### Field Types
+
+Documind supports all standard JSON Schema types:
+
+<Tabs>
+<Tab title="String">
+```json
+{
+  "invoice_number": {
+    "type": "string",
+    "description": "The invoice number"
+  }
+}
+```
+</Tab>
+
+<Tab title="Number">
+```json
+{
+  "total_amount": {
+    "type": "number",
+    "description": "Total invoice amount"
+  }
+}
+```
+</Tab>
+
+<Tab title="Boolean">
+```json
+{
+  "is_paid": {
+    "type": "boolean",
+    "description": "Whether the invoice has been paid"
+  }
+}
+```
+</Tab>
+
+<Tab title="Array">
+```json
+{
+  "line_items": {
+    "type": "array",
+    "description": "Invoice line items",
+    "items": {
+      "type": "object",
+      "named_entities": {
+        "description": {"type": "string"},
+        "quantity": {"type": "number"},
+        "price": {"type": "number"}
+      }
+    }
+  }
+}
+```
+</Tab>
+
+<Tab title="Object">
+```json
+{
+  "vendor": {
+    "type": "object",
+    "description": "Vendor information",
+    "named_entities": {
+      "name": {"type": "string"},
+      "address": {"type": "string"},
+      "tax_id": {"type": "string"}
+    }
+  }
+}
+```
+</Tab>
+</Tabs>
+
+### Required Fields
+
+Mark critical fields as `required` to ensure they're extracted and flagged for review if confidence is low:
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "invoice_number": {"type": "string"},
+    "total_amount": {"type": "number"},
+    "optional_notes": {"type": "string"}
+  },
+  "required": ["invoice_number", "total_amount"]
+}
+```
+
+## Extraction Modes
+
+Documind offers three extraction modes with different trade-offs:
+
+### Basic Mode (2-6 credits/page)
+
+Single-model extraction for simple documents:
+
+```json
+{
+  "schema": {...},
+  "model": "google-gemini-2.0-flash"  // 2 credits/page
+  // or "openai-gpt-4.1"             // 4 credits/page
+  // or "openai-gpt-4o"              // 6 credits/page
+}
+```
+
+**When to use:**
+- Simple, well-formatted documents
+- Cost is a priority
+- Speed is important
+- Review workflow not needed
+
+**Limitations:**
+- No confidence scores
+- No automatic review flagging
+- Single model may miss edge cases
+
+### VLM Mode (10 credits/page)
+
+Vision Language Model-based extraction for image-heavy documents:
+
+```json
+{
+  "schema": {...},
+  "extraction_mode": "vlm"
+}
+```
+
+**When to use:**
+- Scanned documents
+- Images with text
+- Poor quality PDFs
+- Documents where layout is important
+
+**Features:**
+- Uses native image processing
+- Better for visual documents
+- No confidence scores
+
+### Advanced Mode (15 credits/page)
+
+Multi-model ensemble with confidence scoring:
+
+```json
+{
+  "schema": {...},
+  "review_threshold": 80  // Don't specify model or extraction_mode
+}
+```
+
+**When to use:**
+- Complex documents
+- High accuracy required
+- Review workflow desired
+- Structured forms and tables
+
+**Features:**
+- Multiple models consensus
+- Confidence scores for every field
+- Automatic review flagging
+- Best accuracy
+
+## Confidence Scores
+
+Advanced mode provides confidence scores for each extracted field, helping you understand extraction reliability.
+
+### Score Calculation
+
+Confidence scores (0-100) are calculated from:
+- **Lexical similarity** (40%): How consistent the text is across models
+- **Semantic similarity** (60%): How similar the meaning is across models
+
+```json
+{
+  "results": {
+    "invoice_number": "INV-2024-001",
+    "total_amount": 1250.00
+  },
+  "needs_review_metadata": {
+    "confidence_scores": {
+      "invoice_number": 95.5,
+      "total_amount": 78.2
+    }
+  }
+}
+```
+
+### Nested Scores
+
+For arrays and objects, scores are nested to match the data structure:
+
+```json
+{
+  "confidence_scores": {
+    "vendor": {
+      "name": 92.3,
+      "address": 85.1
+    },
+    "line_items": {
+      "0": {
+        "description": 88.5,
+        "amount": 91.0
+      },
+      "1": {
+        "description": 76.5,
+        "amount": 82.0
+      }
+    }
+  }
+}
+```
+
+## Review Workflow
+
+When required fields have low confidence, extractions are automatically flagged for human review.
+
+### Review Threshold
+
+The `review_threshold` parameter (default: 80) determines when review is needed:
+
+```json
+{
+  "schema": {...},
+  "review_threshold": 85  // Flag fields with confidence < 85%
+}
+```
+
+### Review Flags
+
+The `needs_review_metadata` contains flags matching your data structure:
+
+```json
+{
+  "needs_review": true,
+  "needs_review_metadata": {
+    "confidence_scores": {
+      "invoice_number": 95.5,
+      "total_amount": 72.0  // Below threshold!
+    },
+    "review_flags": {
+      "invoice_number": false,
+      "total_amount": true    // Needs review
+    }
+  }
+}
+```
+
+### Review States
+
+An extraction goes through these states:
+
+```
+Initial Extraction
+↓
+needs_review = true?
+│
+├─ No  → Use results immediately
+│
+└─ Yes → Human reviews
+         ↓
+         PUT /review/{document_id}
+         ↓
+         is_reviewed = true
+         ↓
+         Use reviewed_results
+```
+
+### Polling for Review
+
+Poll the extractions endpoint to check review status:
+
+```python
+import time
+
+while True:
+    response = requests.get(
+        f"{BASE_URL}/data/extractions?document_id={document_id}",
+        headers=headers
+    )
+    extraction = response.json()["items"][0]
+    
+    if extraction["is_reviewed"]:
+        results = extraction["reviewed_results"]
+        break
+    
+    time.sleep(10)  # Wait 10 seconds before checking again
+```
+
+## Credits System
+
+Documind uses a credit-based pricing model:
+
+### Credit Costs
+
+| Extraction Mode | Cost per Page |
+|----------------|---------------|
+| Basic (Gemini 2.0 Flash) | 2 credits |
+| Basic (GPT-4.1) | 4 credits |
+| Basic (GPT-4o) | 6 credits |
+| VLM | 10 credits |
+| Advanced | 15 credits |
+
+### Credit Tracking
+
+Monitor your credits via the API:
+
+```bash
+curl https://api.documind.cloud/api/v1/usage/credits \
+  -H "X-API-Key: your_api_key_here"
+```
+
+Response:
+```json
+{
+  "available_credits": 850,
+  "total_credits": 1000,
+  "lifetime_credits": 5000,
+  "subscription_tier": "Professional"
+}
+```
+
+### Insufficient Credits
+
+When you run out of credits, API calls return `402 Payment Required`:
+
+```json
+{
+  "detail": "Insufficient credits. Please upgrade your plan or wait for your daily credits to refresh."
+}
+```
+
+## Authentication
+
+All API requests require authentication using API keys passed in the `X-API-Key` header:
+
+```bash
+curl https://api.documind.cloud/api/v1/upload \
+  -H "X-API-Key: your_api_key_here" \
+  -F "files=@document.pdf"
+```
+
+### API Key Scopes
+
+API keys can have different permission scopes:
+
+- `read:extractions` - Read extraction results
+- `write:extractions` - Create and update extractions
+- `read:api_keys` - List API keys
+- `write:api_keys` - Create and manage API keys
+- `read:usage` - View usage and credits
+- `admin` - Full access (admin only)
+
+### Organization Keys
+
+API keys can be user-specific or organization-wide, allowing team members to share access.
+
+## Error Handling
+
+Documind uses standard HTTP status codes:
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| 200 | Success | Process the response |
+| 400 | Bad Request | Check your request parameters |
+| 401 | Unauthorized | Verify your API key |
+| 402 | Payment Required | Add credits or upgrade plan |
+| 403 | Forbidden | Check API key permissions |
+| 404 | Not Found | Verify document/extraction ID |
+| 500 | Server Error | Retry or contact support |
+
+See the [Error Handling Guide](/guides/error-handling) for detailed strategies.
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Learn best practices for creating effective schemas
+</Card>
+
+<Card title="Prompt Design" icon="message" href="/guides/prompt-design">
+  Optimize extraction prompts for better results
+</Card>
+
+<Card title="Invoice Tutorial" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  Process invoices end-to-end
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/introduction">
+  Explore all API endpoints
+</Card>
+</CardGroup>
+

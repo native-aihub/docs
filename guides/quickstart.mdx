@@ -1,0 +1,311 @@
+---
+title: "Quick Start"
+description: "Extract your first document in 5 minutes"
+---
+
+## Overview
+
+This guide will walk you through extracting data from a document using Documind in just a few minutes.
+
+## Prerequisites
+
+- A Documind account (sign up at [app.documind.cloud](https://app.documind.cloud))
+- An API key (create one in the dashboard)
+- A document to process (PDF, DOCX, or image)
+
+## Step 1: Get Your API Key
+
+1. Log in to [Documind Dashboard](https://app.documind.cloud)
+2. Navigate to **API Keys** section
+3. Click **Create New API Key**
+4. Give it a name (e.g., "Development Key")
+5. Copy and save the API key securely
+
+<Warning>
+The API key is only shown once. Store it securely - never commit it to version control.
+</Warning>
+
+## Step 2: Upload a Document
+
+<CodeGroup>
+```python Python
+import requests
+
+API_KEY = "your_api_key_here"
+headers = {"X-API-Key": API_KEY}
+
+# Upload a document
+with open("invoice.pdf", "rb") as f:
+    files = {"files": f}
+    response = requests.post(
+        "https://api.documind.cloud/api/v1/upload",
+        headers=headers,
+        files=files
+    )
+
+document_ids = response.json()
+document_id = document_ids[0]
+print(f"Document uploaded: {document_id}")
+```
+
+```javascript Node.js
+const fs = require('fs');
+const FormData = require('form-data');
+const axios = require('axios');
+
+const API_KEY = 'your_api_key_here';
+const form = new FormData();
+form.append('files', fs.createReadStream('invoice.pdf'));
+
+const response = await axios.post(
+  'https://api.documind.cloud/api/v1/upload',
+  form,
+  {
+    headers: {
+      ...form.getHeaders(),
+      'X-API-Key': API_KEY
+    }
+  }
+);
+
+const documentId = response.data[0];
+console.log(`Document uploaded: ${documentId}`);
+```
+
+```bash cURL
+curl -X POST https://api.documind.cloud/api/v1/upload \
+  -H "X-API-Key: your_api_key_here" \
+  -F "files=@invoice.pdf"
+```
+</CodeGroup>
+
+## Step 3: Define Your Schema
+
+Create a simple schema to specify what data to extract:
+
+```json
+{
+  "type": "object",
+  "named_entities": {
+    "invoice_number": {
+      "type": "string",
+      "description": "The invoice number"
+    },
+    "invoice_date": {
+      "type": "string",
+      "description": "The invoice date"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "The total amount"
+    },
+    "vendor_name": {
+      "type": "string",
+      "description": "The vendor or company name"
+    }
+  },
+  "required": ["invoice_number", "total_amount"]
+}
+```
+
+<Tip>
+You can also auto-generate schemas using the `/schema/{document_id}` endpoint or use predefined schemas for common document types.
+</Tip>
+
+## Step 4: Extract Data
+
+Now extract data from the uploaded document:
+
+<CodeGroup>
+```python Python
+# Extract data using Basic mode
+schema = {
+    "type": "object",
+    "named_entities": {
+        "invoice_number": {"type": "string", "description": "Invoice number"},
+        "invoice_date": {"type": "string", "description": "Invoice date"},
+        "total_amount": {"type": "number", "description": "Total amount"},
+        "vendor_name": {"type": "string", "description": "Vendor name"}
+    },
+    "required": ["invoice_number", "total_amount"]
+}
+
+response = requests.post(
+    f"https://api.documind.cloud/api/v1/extract/{document_id}",
+    headers=headers,
+    json={
+        "schema": schema,
+        "model": "google-gemini-2.0-flash",  # Basic mode: 2 credits/page
+        "prompt": "Extract invoice information accurately"
+    }
+)
+
+result = response.json()
+print("Extraction Results:")
+print(result["results"])
+```
+
+```javascript Node.js
+const schema = {
+  type: 'object',
+  named_entities: {
+    invoice_number: { type: 'string', description: 'Invoice number' },
+    invoice_date: { type: 'string', description: 'Invoice date' },
+    total_amount: { type: 'number', description: 'Total amount' },
+    vendor_name: { type: 'string', description: 'Vendor name' }
+  },
+  required: ['invoice_number', 'total_amount']
+};
+
+const response = await axios.post(
+  `https://api.documind.cloud/api/v1/extract/${documentId}`,
+  {
+    schema: schema,
+    model: 'google-gemini-2.0-flash', // Basic mode: 2 credits/page
+    prompt: 'Extract invoice information accurately'
+  },
+  {
+    headers: { 'X-API-Key': API_KEY }
+  }
+);
+
+console.log('Extraction Results:');
+console.log(response.data.results);
+```
+
+```bash cURL
+curl -X POST https://api.documind.cloud/api/v1/extract/{document_id} \
+  -H "X-API-Key: your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": {
+      "type": "object",
+      "named_entities": {
+        "invoice_number": {"type": "string", "description": "Invoice number"},
+        "total_amount": {"type": "number", "description": "Total amount"}
+      }
+    },
+    "model": "google-gemini-2.0-flash"
+  }'
+```
+</CodeGroup>
+
+## Step 5: Handle the Response
+
+The response contains the extracted data:
+
+```json
+{
+  "document_id": "123e4567-e89b-12d3-a456-426614174000",
+  "results": {
+    "invoice_number": "INV-2024-001",
+    "invoice_date": "2024-01-15",
+    "total_amount": 1250.00,
+    "vendor_name": "Acme Corporation"
+  },
+  "needs_review": false,
+  "needs_review_metadata": {}
+}
+```
+
+<Tip>
+**When `needs_review` is `false`**: Use the results immediately in your workflow.
+
+**When `needs_review` is `true`**: Wait for human review before processing. See [Review Workflow Guide](/api/review/understanding-reviews).
+</Tip>
+
+## What's Next?
+
+<CardGroup cols={2}>
+<Card title="Schema Design Guide" icon="pencil" href="/guides/schema-design">
+  Learn how to design schemas for better extraction accuracy
+</Card>
+
+<Card title="Invoice Processing Tutorial" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  Complete tutorial for processing invoices at scale
+</Card>
+
+<Card title="Extraction Modes" icon="sliders" href="/api/extraction/extract-data">
+  Understand Basic, VLM, and Advanced extraction modes
+</Card>
+
+<Card title="Review Workflow" icon="user-check" href="/api/review/understanding-reviews">
+  Handle documents that need human review
+</Card>
+</CardGroup>
+
+## Complete Example
+
+Here's a complete Python script that puts it all together:
+
+```python
+import requests
+import time
+
+API_KEY = "your_api_key_here"
+BASE_URL = "https://api.documind.cloud/api/v1"
+headers = {"X-API-Key": API_KEY}
+
+# 1. Upload document
+with open("invoice.pdf", "rb") as f:
+    files = {"files": f}
+    upload_response = requests.post(
+        f"{BASE_URL}/upload",
+        headers=headers,
+        files=files
+    )
+document_id = upload_response.json()[0]
+
+# 2. Define schema
+schema = {
+    "type": "object",
+    "named_entities": {
+        "invoice_number": {"type": "string"},
+        "total_amount": {"type": "number"},
+        "vendor_name": {"type": "string"}
+    },
+    "required": ["invoice_number", "total_amount"]
+}
+
+# 3. Extract data
+extract_response = requests.post(
+    f"{BASE_URL}/extract/{document_id}",
+    headers=headers,
+    json={"schema": schema, "model": "google-gemini-2.0-flash"}
+)
+
+result = extract_response.json()
+
+# 4. Process results
+if not result["needs_review"]:
+    print("Extracted Data:")
+    print(result["results"])
+else:
+    print("Document flagged for review. Waiting for human verification...")
+    # Poll for reviewed results
+    # See review workflow guide for details
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="401 Unauthorized Error">
+  Check that your API key is correct and included in the `X-API-Key` header.
+</Accordion>
+
+<Accordion title="402 Payment Required">
+  You've run out of credits. Check your balance in the dashboard or upgrade your plan.
+</Accordion>
+
+<Accordion title="400 Bad Request">
+  Your schema might be invalid. Ensure it follows JSON Schema format with `named_entities` for the fields you want to extract.
+</Accordion>
+
+<Accordion title="Poor Extraction Quality">
+  - Try using Advanced mode for better accuracy
+  - Add more descriptive field descriptions in your schema
+  - Include example values or constraints
+  - See [Schema Design Guide](/guides/schema-design) for best practices
+</Accordion>
+</AccordionGroup>
+

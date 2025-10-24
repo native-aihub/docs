@@ -1,0 +1,34 @@
+---
+title: "Flag for Review"
+description: "Manually flag an extraction for review"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/data/extractions/{extraction_id}/flag
+```
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `extraction_id` | string (UUID) | Yes | ID of the extraction |
+
+## Request Body
+
+```json
+{
+  "needs_review": true
+}
+```
+
+## Response
+
+```json
+{
+  "status": "success",
+  "message": "Extraction flagged for review"
+}
+```
+

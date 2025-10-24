@@ -1,0 +1,256 @@
+---
+title: "Authentication"
+description: "Secure your API requests with API keys"
+---
+
+## API Key Authentication
+
+Documind uses API key authentication. Every request to the API must include a valid API key in the `X-API-Key` header.
+
+```bash
+X-API-Key: YOUR_API_KEY
+```
+
+## Creating API Keys
+
+<Steps>
+<Step title="Navigate to API Keys">
+  Access the API Keys section in your dashboard at `/api-keys`.
+</Step>
+
+<Step title="Create New Key">
+  Click "Create API Key" and provide:
+  - **Name**: Descriptive name for the key (e.g., "Production Automation")
+  - **Description**: Optional details about key usage
+  - **Scopes**: Permissions for the key (read/write access)
+  - **Expiration**: Optional expiration date
+  
+  <Warning>
+  The full API key is shown only once during creation. Store it securely.
+  </Warning>
+</Step>
+
+<Step title="Store Securely">
+  Save the API key in a secure location:
+  - Environment variables
+  - Secrets management service (AWS Secrets Manager, Azure Key Vault)
+  - Password manager
+  
+  Never commit keys to version control or share them publicly.
+</Step>
+</Steps>
+
+## Request Format
+
+Include the API key in the `X-API-Key` header of every request:
+
+<CodeGroup>
+```bash cURL
+curl https://api.documind.com/api/v1/upload \
+  -H 'X-API-Key: YOUR_API_KEY' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'files=@document.pdf'
+```
+
+```python Python
+import requests
+
+headers = {
+    'X-API-Key': API_KEY
+}
+
+response = requests.post(
+    'https://api.documind.com/api/v1/upload',
+    headers=headers,
+    files={'files': open('document.pdf', 'rb')}
+)
+```
+
+```javascript Node.js
+const response = await fetch('https://api.documind.com/api/v1/upload', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': process.env.API_KEY
+  },
+  body: formData
+});
+```
+</CodeGroup>
+
+## API Key Scopes
+
+Control what operations each API key can perform:
+
+| Scope | Description | Endpoints |
+|-------|-------------|-----------|
+| `read_extractions` | View extraction results | `GET /data/extractions`, `GET /pending-reviews` |
+| `write_extractions` | Create and modify extractions | `POST /upload`, `POST /extract`, `PUT /review` |
+| `read_api_keys` | List API keys | `GET /auth/api-keys` |
+| `write_api_keys` | Create/update API keys | `POST /auth/api-keys`, `PUT /auth/api-keys/{id}` |
+| `read_usage` | View usage metrics | `GET /usage/current`, `GET /usage/credits` |
+| `admin` | Full access to all resources | All endpoints |
+
+<Tip>
+For automation scripts, create keys with only the scopes they need: `read_extractions` and `write_extractions`.
+</Tip>
+
+## Managing API Keys
+
+### List All Keys
+
+```bash
+curl https://api.documind.com/api/v1/auth/api-keys \
+  -H 'X-API-Key: YOUR_API_KEY'
+```
+
+<ResponseExample>
+```json Response
+[
+  {
+    "id": "key_abc123",
+    "name": "Production Bot",
+    "prefix": "dk_live_",
+    "scopes": ["read_extractions", "write_extractions"],
+    "is_active": true,
+    "is_revoked": false,
+    "created_at": "2024-01-15T10:30:00Z",
+    "expires_at": "2025-01-15T10:30:00Z"
+  }
+]
+```
+</ResponseExample>
+
+### Update API Key
+
+Update key properties like name, scopes, or expiration:
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.documind.com/api/v1/auth/api-keys/key_abc123 \
+  -H 'X-API-Key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated Production Bot",
+    "scopes": ["read_extractions", "write_extractions", "read_usage"],
+    "expires_in_days": 365
+  }'
+```
+</RequestExample>
+
+### Revoke API Key
+
+Immediately disable an API key:
+
+```bash
+curl -X DELETE https://api.documind.com/api/v1/auth/api-keys/key_abc123 \
+  -H 'X-API-Key: YOUR_API_KEY'
+```
+
+<Warning>
+Revoked keys cannot be reactivated. You must create a new key.
+</Warning>
+
+## Organization-Wide Keys
+
+Create API keys that work across your entire organization:
+
+<RequestExample>
+```json Request Body
+{
+  "name": "Org-wide Bot Key",
+  "org_wide": true,
+  "scopes": ["read_extractions", "write_extractions"],
+  "expires_in_days": 90
+}
+```
+</RequestExample>
+
+Organization-wide keys:
+- Share credits across the organization
+- Access extractions from any team member
+- Ideal for shared automation infrastructure
+
+## Error Responses
+
+### 401 Unauthorized
+
+Missing or invalid API key:
+
+```json
+{
+  "detail": "Invalid authentication credentials"
+}
+```
+
+**Solution**: Verify your API key is correct and included in the `Authorization` header.
+
+### 403 Forbidden
+
+API key lacks required scope:
+
+```json
+{
+  "detail": "Insufficient permissions for this operation"
+}
+```
+
+**Solution**: Update the API key's scopes or use a key with appropriate permissions.
+
+### 402 Payment Required
+
+Insufficient credits:
+
+```json
+{
+  "detail": "Insufficient credits. Please upgrade your plan or wait for your daily credits to refresh."
+}
+```
+
+**Solution**: Purchase more credits to continue processing.
+
+## Security Best Practices
+
+<AccordionGroup>
+<Accordion title="Environment Variables">
+  Store API keys in environment variables, not in code:
+  
+  ```bash .env
+  DOCUMIND_API_KEY=dk_live_abc123xyz
+  ```
+  
+  ```python
+  import os
+  api_key = os.environ['DOCUMIND_API_KEY']
+  ```
+</Accordion>
+
+<Accordion title="Key Rotation">
+  Rotate API keys periodically (every 90 days recommended):
+  
+  1. Create a new API key
+  2. Update your applications to use the new key
+  3. Verify everything works
+  4. Revoke the old key
+</Accordion>
+
+<Accordion title="Least Privilege">
+  Grant only the minimum scopes required:
+  - **Read-only automation**: `read_extractions` only
+  - **Processing automation**: `read_extractions`, `write_extractions`
+  - **Admin operations**: All scopes
+</Accordion>
+
+<Accordion title="Monitoring">
+  Track API key usage via the dashboard:
+  - API calls per key
+  - Last used timestamp
+  - Unusual activity patterns
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/api/quickstart">
+  Make your first authenticated API request
+</Card>
+

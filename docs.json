@@ -1,68 +1,145 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Documind API",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#DF1C4F",
+    "light": "#E84B7A",
+    "dark": "#B71649"
+  },
+  "fonts": {
+  "family": "Geist"
   },
   "favicon": "/favicon.svg",
+  "thumbnails": {
+    "background": "/logo/thumbnail.png"
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "API Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "api/overview",
+              "api/authentication",
+              "api/quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Extraction Workflow",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "api/extraction/extraction-flow",
+              "api/extraction/upload-documents",
+              "api/extraction/extract-data"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Review Workflow",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "api/review/understanding-reviews",
+              "api/review/polling-pattern"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Data Endpoints",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "api/data/list-extractions"
+            ]
+          },
+          {
+            "group": "Integration Patterns",
+            "pages": [
+              "api/patterns/automation-pipeline"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Guides",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Getting Started",
+            "pages": [
+              "guides/introduction",
+              "guides/quickstart",
+              "guides/core-concepts"
+            ]
+          },
+          {
+            "group": "Use-Case Tutorials",
+            "pages": [
+              "guides/tutorials/invoice-processing",
+              "guides/tutorials/form-extraction",
+              "guides/tutorials/batch-processing",
+              "guides/tutorials/receipt-extraction"
+            ]
+          },
+          {
+            "group": "Advanced Guides",
+            "pages": [
+              "guides/schema-design",
+              "guides/prompt-design",
+              "guides/error-handling"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Introduction",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Core Endpoints",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/upload",
+              "api-reference/extract",
+              "api-reference/generate-schema"
+            ]
+          },
+          {
+            "group": "Data & Querying",
+            "pages": [
+              "api-reference/list-extractions",
+              "api-reference/get-extraction",
+              "api-reference/flag-review"
+            ]
+          },
+          {
+            "group": "Documents",
+            "pages": [
+              "api-reference/list-documents",
+              "api-reference/get-document",
+              "api-reference/delete-document"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "pages": [
+              "api-reference/create-api-key",
+              "api-reference/list-api-keys",
+              "api-reference/delete-api-key"
+            ]
+          },
+          {
+            "group": "User Settings",
+            "pages": [
+              "api-reference/get-settings",
+              "api-reference/custom-schemas",
+              "api-reference/custom-prompts"
+            ]
+          },
+          {
+            "group": "Usage & Credits",
+            "pages": [
+              "api-reference/get-usage",
+              "api-reference/get-credits"
             ]
           }
         ]
@@ -70,14 +147,14 @@
     ],
     "global": {
       "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
+          {
+            "anchor": "Documentation",
+            "href": "https://docs.documind.cloud",
+            "icon": "book-open-cover"
+          },
         {
           "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
+          "href": "https://documind.cloud/blog",
           "icon": "newspaper"
         }
       ]
@@ -90,14 +167,14 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Contact",
+        "href": "https://documind.cloud/contact"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Documind App",
+      "href": "https://app.documind.cloud"
     }
   },
   "contextual": {
@@ -114,9 +191,7 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "linkedin": "https://linkedin.com/company/4aihub"
     }
   }
 }

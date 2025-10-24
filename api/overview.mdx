@@ -1,0 +1,178 @@
+---
+title: "API Overview"
+description: "Intelligent document extraction API for automation workflows"
+---
+
+## What is Documind API?
+
+Documind provides a powerful document extraction API designed for automation developers and integration engineers. Upload documents, define extraction schemas, and receive structured JSON data with confidence scores and automatic review flagging.
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+<Card title="Multi-Model Extraction" icon="brain">
+  Choose between Basic, VLM-based, or Advanced (multi-model ensemble) extraction modes with different accuracy and speed trade-offs.
+</Card>
+
+<Card title="Schema Flexibility" icon="table">
+  Use predefined schemas, generate from samples, or create custom schemas for any document type.
+</Card>
+
+<Card title="Review Workflow" icon="flag">
+  Automatic flagging of low-confidence fields enables human-in-the-loop validation for critical data.
+</Card>
+
+<Card title="Credit-Based Usage" icon="coins">
+  Transparent per-page pricing with different credit costs for Basic (2-6), VLM (10), and Advanced (15) extraction.
+</Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+<Step title="Upload Documents">
+  Submit PDF, Word, or image files via the `/upload` endpoint. Returns document IDs for processing.
+</Step>
+
+<Step title="Define Schema">
+  Specify what data to extract using JSON Schema format. Generate schemas automatically or use predefined templates.
+</Step>
+
+<Step title="Extract Data">
+  Process documents with `/extract/{document_id}`. Choose extraction mode and review threshold.
+</Step>
+
+<Step title="Handle Reviews">
+  Poll `/data/extractions` to detect when `is_reviewed=true` for documents that needed review. Use corrected data in your automation.
+</Step>
+</Steps>
+
+## Extraction Modes
+
+<AccordionGroup>
+<Accordion title="Basic Extraction (2-6 credits/page)">
+  Single-model extraction with your choice of:
+  - **GPT-4o** (6 credits) - Most accurate
+  - **GPT-4.1** (4 credits) - Balanced 
+  - **Gemini 2.0 Flash** (2 credits) - Fastest
+  
+  Best for simple documents where extensive validation isn't required.
+</Accordion>
+
+<Accordion title="VLM Based Extraction (10 credits/page)">
+  Uses native visual data to process content through multiple Vision-Language Models.
+  
+  Best for low-text, high-visual content like scanned documents, images, or forms where layout is crucial.
+</Accordion>
+
+<Accordion title="Advanced Extraction (15 credits/page)">
+  Multi-model ensemble extraction utilizing document layout, reading order, and OCR'd text.
+  
+  Includes confidence scores and automatic review flagging. Best for structured documents like invoices, forms, and tables requiring high accuracy. Activated by not setting `model` or `extraction_mode` parameters.
+</Accordion>
+</AccordionGroup>
+
+## Use Cases
+
+### Common Use Cases
+
+- **Invoice Processing**: Extract line items, totals, vendor details
+- **Form Data Entry**: Digitize paper forms into structured data
+- **Document Classification**: Identify document types and route accordingly
+- **Compliance Checks**: Extract specific fields for validation
+
+### Integration Examples
+
+<CodeGroup>
+```python Python
+# Typical automation workflow
+import requests
+
+API_KEY = "your_api_key"
+headers = {"X-API-Key": API_KEY}
+
+# 1. Upload documents
+files = [("files", open("invoice1.pdf", "rb")), ("files", open("invoice2.pdf", "rb"))]
+response = requests.post("https://api.documind.com/api/v1/upload", headers=headers, files=files)
+doc_ids = response.json()
+
+# 2. Extract with schema
+for doc_id in doc_ids:
+    response = requests.post(
+        f"https://api.documind.com/api/v1/extract/{doc_id}",
+        headers=headers,
+        json={"schema": invoice_schema, "review_threshold": 85}
+    )
+    result = response.json()
+    
+    # 3. Check if needs review
+    if result['needs_review']:
+        # Wait for human review, then poll
+        reviewed_data = wait_for_review(doc_id)
+        process_invoice(reviewed_data)
+    else:
+        process_invoice(result['results'])
+```
+
+```javascript Node.js
+// Automation pipeline with polling
+const results = await Promise.all(
+  docIds.map(id => extract(id, { schema, model: 'openai-gpt-4.1' }))
+);
+
+// Filter out items needing review
+const needsReview = results.filter(r => r.needs_review);
+
+// Poll until reviewed
+for (const item of needsReview) {
+  await pollUntilReviewed(item.document_id);
+}
+```
+</CodeGroup>
+
+## Authentication
+
+All API requests require authentication using API keys passed in the `X-API-Key` header:
+
+```bash
+X-API-Key: YOUR_API_KEY
+```
+
+<Warning>
+Never commit API keys to version control. Use environment variables or secure credential storage.
+</Warning>
+
+## Rate Limits & Credits
+
+- **API Calls**: Track usage via `/usage/current` endpoint
+- **Credits**: Deducted per page/image processed
+- **Daily Refresh**: Credits refresh based on your subscription tier
+- **Insufficient Credits**: Returns `402 Payment Required` status
+
+Check your current credits:
+
+```bash
+curl https://api.documind.com/api/v1/usage/credits \
+  -H 'X-API-Key: YOUR_API_KEY'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Quick Start" icon="rocket" href="/api/quickstart">
+  Get started with your first extraction in 5 minutes
+</Card>
+
+<Card title="Authentication" icon="key" href="/api/authentication">
+  Learn how to create and manage API keys
+</Card>
+
+<Card title="Extraction Flow" icon="diagram-project" href="/api/extraction/extraction-flow">
+  Understand the complete extraction workflow
+</Card>
+
+<Card title="Review Polling" icon="rotate" href="/api/review/polling-pattern">
+  Implement review polling for automation pipelines
+</Card>
+</CardGroup>
+

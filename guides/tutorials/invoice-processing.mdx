@@ -1,0 +1,707 @@
+---
+title: "Invoice Processing Tutorial"
+description: "Complete guide to extracting invoice data at scale"
+---
+
+## Overview
+
+This tutorial walks you through building a production-ready invoice processing system with Documind. You'll learn how to extract invoice data, handle reviews, and build a complete automation pipeline.
+
+## What You'll Build
+
+By the end of this tutorial, you'll have:
+- A robust invoice extraction system
+- Automated review workflow handling
+- Error handling and retry logic
+- Batch processing capabilities
+- Cost optimization strategies
+
+## Prerequisites
+
+- Documind API key
+- Python 3.8+ or Node.js 16+
+- Basic understanding of REST APIs
+- Sample invoices (we'll provide examples)
+
+## Step 1: Design the Invoice Schema
+
+First, create a comprehensive schema for invoice data:
+
+```json invoice_schema.json
+{
+  "type": "object",
+  "title": "Invoice Extraction Schema",
+  "named_entities": {
+    "invoice_number": {
+      "type": "string",
+      "description": "Unique invoice identifier (e.g., INV-2024-001)"
+    },
+    "invoice_date": {
+      "type": "string",
+      "description": "Date the invoice was issued in YYYY-MM-DD format",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "description": "Payment due date in YYYY-MM-DD format",
+      "format": "date"
+    },
+    "vendor": {
+      "type": "object",
+      "description": "Vendor/seller information",
+      "named_entities": {
+        "name": {
+          "type": "string",
+          "description": "Vendor company name"
+        },
+        "address": {
+          "type": "string",
+          "description": "Vendor mailing address"
+        },
+        "tax_id": {
+          "type": "string",
+          "description": "Vendor tax ID or EIN"
+        }
+      },
+      "required": ["name"]
+    },
+    "customer": {
+      "type": "object",
+      "description": "Customer/buyer information",
+      "named_entities": {
+        "name": {
+          "type": "string",
+          "description": "Customer company name"
+        },
+        "address": {
+          "type": "string",
+          "description": "Customer billing address"
+        }
+      }
+    },
+    "line_items": {
+      "type": "array",
+      "description": "Invoice line items",
+      "items": {
+        "type": "object",
+        "named_entities": {
+          "description": {
+            "type": "string",
+            "description": "Item or service description"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity ordered"
+          },
+          "unit_price": {
+            "type": "number",
+            "description": "Price per unit"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Line total (quantity × unit_price)"
+          }
+        },
+        "required": ["description", "amount"]
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "description": "Subtotal before tax"
+    },
+    "tax": {
+      "type": "number",
+      "description": "Tax amount"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total amount due",
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "description": "Currency code (e.g., USD, EUR, GBP)",
+      "default": "USD"
+    },
+    "payment_terms": {
+      "type": "string",
+      "description": "Payment terms (e.g., Net 30, Due on Receipt)"
+    }
+  },
+  "required": ["invoice_number", "invoice_date", "vendor", "total"]
+}
+```
+
+<Tip>
+**Schema Design Tips:**
+- Mark only critical fields as `required` (invoice_number, total)
+- Include descriptions for better extraction accuracy
+- Use proper data types (number for amounts, string for text)
+- Nest related data (vendor, customer) for better organization
+</Tip>
+
+## Step 2: Create the Invoice Processor
+
+Build a Python class to handle invoice processing:
+
+<CodeGroup>
+```python Python
+import requests
+import time
+import logging
+from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger(__name__)
+
+class InvoiceProcessor:
+    def __init__(self, api_key: str, base_url: str = "https://api.documind.cloud/api/v1"):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.headers = {"X-API-Key": api_key}
+        self.schema = self._load_schema()
+    
+    def _load_schema(self) -> Dict[str, Any]:
+        """Load invoice schema"""
+        import json
+        with open("invoice_schema.json") as f:
+            return json.load(f)
+    
+    def upload_invoice(self, file_path: str) -> str:
+        """Upload an invoice and return document ID"""
+        logger.info(f"Uploading {file_path}...")
+        
+        with open(file_path, "rb") as f:
+            files = {"files": f}
+            response = requests.post(
+                f"{self.base_url}/upload",
+                headers=self.headers,
+                files=files
+            )
+        
+        response.raise_for_status()
+        document_id = response.json()[0]
+        logger.info(f"Uploaded successfully: {document_id}")
+        
+        return document_id
+    
+    def extract_invoice(
+        self,
+        document_id: str,
+        mode: str = "basic",
+        model: str = "google-gemini-2.0-flash"
+    ) -> Dict[str, Any]:
+        """Extract invoice data"""
+        logger.info(f"Extracting invoice {document_id} in {mode} mode...")
+        
+        payload = {
+            "schema": self.schema,
+            "prompt": self._get_extraction_prompt()
+        }
+        
+        # Add mode-specific parameters
+        if mode == "basic":
+            payload["model"] = model
+        elif mode == "advanced":
+            payload["review_threshold"] = 85
+        
+        response = requests.post(
+            f"{self.base_url}/extract/{document_id}",
+            headers=self.headers,
+            json=payload,
+            timeout=120
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        logger.info(f"Extraction complete. Needs review: {result['needs_review']}")
+        
+        return result
+    
+    def _get_extraction_prompt(self) -> str:
+        """Get extraction prompt for invoices"""
+        return """
+        Extract invoice information accurately from this document.
+        
+        Instructions:
+        - Invoice number is typically in the header, labeled 'Invoice #' or 'Invoice Number'
+        - Use YYYY-MM-DD format for dates
+        - Extract ALL line items from the table, including description, quantity, unit price, and amount
+        - The total is the final amount due, including tax
+        - Vendor information is usually at the top or 'From' section
+        - Customer information is in the 'Bill To' or 'Customer' section
+        - If a field is not found, return null
+        
+        Be precise with numeric values and ensure line items sum correctly.
+        """
+    
+    def wait_for_review(
+        self,
+        document_id: str,
+        timeout: int = 300,
+        poll_interval: int = 10
+    ) -> Optional[Dict[str, Any]]:
+        """Wait for human review to complete"""
+        logger.info(f"Waiting for review of {document_id}...")
+        
+        start_time = time.time()
+        
+        while (time.time() - start_time) < timeout:
+            response = requests.get(
+                f"{self.base_url}/data/extractions",
+                headers=self.headers,
+                params={"document_id": document_id}
+            )
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            if data["items"]:
+                extraction = data["items"][0]
+                
+                if extraction["is_reviewed"]:
+                    logger.info("Review complete!")
+                    return extraction["reviewed_results"]
+            
+            time.sleep(poll_interval)
+        
+        logger.error(f"Review not completed within {timeout}s")
+        return None
+    
+    def process_invoice(
+        self,
+        file_path: str,
+        mode: str = "basic"
+    ) -> Dict[str, Any]:
+        """Complete invoice processing workflow"""
+        # Upload
+        document_id = self.upload_invoice(file_path)
+        
+        # Extract
+        result = self.extract_invoice(document_id, mode=mode)
+        
+        # Handle review if needed
+        if result["needs_review"]:
+            logger.info("Invoice flagged for review. Waiting...")
+            reviewed_results = self.wait_for_review(document_id)
+            if reviewed_results:
+                result["results"] = reviewed_results
+                result["is_reviewed"] = True
+        
+        return {
+            "document_id": document_id,
+            "data": result["results"],
+            "needs_review": result["needs_review"],
+            "is_reviewed": result.get("is_reviewed", False)
+        }
+
+# Usage
+processor = InvoiceProcessor(api_key="your_api_key_here")
+result = processor.process_invoice("invoice.pdf", mode="basic")
+print(f"Invoice Number: {result['data']['invoice_number']}")
+print(f"Total: ${result['data']['total']}")
+```
+
+```javascript Node.js
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
+class InvoiceProcessor {
+  constructor(apiKey, baseUrl = 'https://api.documind.cloud/api/v1') {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl;
+    this.headers = { 'X-API-Key': apiKey };
+    this.schema = JSON.parse(fs.readFileSync('invoice_schema.json', 'utf8'));
+  }
+
+  async uploadInvoice(filePath) {
+    console.log(`Uploading ${filePath}...`);
+    
+    const form = new FormData();
+    form.append('files', fs.createReadStream(filePath));
+    
+    const response = await axios.post(
+      `${this.baseUrl}/upload`,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          ...this.headers
+        }
+      }
+    );
+    
+    const documentId = response.data[0];
+    console.log(`Uploaded successfully: ${documentId}`);
+    
+    return documentId;
+  }
+
+  async extractInvoice(documentId, mode = 'basic', model = 'google-gemini-2.0-flash') {
+    console.log(`Extracting invoice ${documentId} in ${mode} mode...`);
+    
+    const payload = {
+      schema: this.schema,
+      prompt: this.getExtractionPrompt()
+    };
+    
+    if (mode === 'basic') {
+      payload.model = model;
+    } else if (mode === 'advanced') {
+      payload.review_threshold = 85;
+    }
+    
+    const response = await axios.post(
+      `${this.baseUrl}/extract/${documentId}`,
+      payload,
+      {
+        headers: this.headers,
+        timeout: 120000
+      }
+    );
+    
+    console.log(`Extraction complete. Needs review: ${response.data.needs_review}`);
+    
+    return response.data;
+  }
+
+  getExtractionPrompt() {
+    return `
+    Extract invoice information accurately from this document.
+    
+    Instructions:
+    - Invoice number is typically in the header
+    - Use YYYY-MM-DD format for dates
+    - Extract ALL line items from the table
+    - The total is the final amount due, including tax
+    - If a field is not found, return null
+    `;
+  }
+
+  async waitForReview(documentId, timeout = 300000, pollInterval = 10000) {
+    console.log(`Waiting for review of ${documentId}...`);
+    
+    const startTime = Date.now();
+    
+    while ((Date.now() - startTime) < timeout) {
+      const response = await axios.get(
+        `${this.baseUrl}/data/extractions`,
+        {
+          headers: this.headers,
+          params: { document_id: documentId }
+        }
+      );
+      
+      if (response.data.items.length > 0) {
+        const extraction = response.data.items[0];
+        
+        if (extraction.is_reviewed) {
+          console.log('Review complete!');
+          return extraction.reviewed_results;
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+    
+    console.error('Review not completed within timeout');
+    return null;
+  }
+
+  async processInvoice(filePath, mode = 'basic') {
+    const documentId = await this.uploadInvoice(filePath);
+    const result = await this.extractInvoice(documentId, mode);
+    
+    if (result.needs_review) {
+      console.log('Invoice flagged for review. Waiting...');
+      const reviewedResults = await this.waitForReview(documentId);
+      if (reviewedResults) {
+        result.results = reviewedResults;
+        result.is_reviewed = true;
+      }
+    }
+    
+    return {
+      document_id: documentId,
+      data: result.results,
+      needs_review: result.needs_review,
+      is_reviewed: result.is_reviewed || false
+    };
+  }
+}
+
+// Usage
+const processor = new InvoiceProcessor('your_api_key_here');
+processor.processInvoice('invoice.pdf', 'basic')
+  .then(result => {
+    console.log(`Invoice Number: ${result.data.invoice_number}`);
+    console.log(`Total: $${result.data.total}`);
+  });
+```
+</CodeGroup>
+
+## Step 3: Handle Batch Processing
+
+Process multiple invoices efficiently:
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List
+
+def process_invoice_batch(
+    processor: InvoiceProcessor,
+    file_paths: List[str],
+    max_workers: int = 3
+) -> List[Dict[str, Any]]:
+    """Process multiple invoices in parallel"""
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        futures = {
+            executor.submit(processor.process_invoice, file_path, mode="basic"): file_path
+            for file_path in file_paths
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(futures):
+            file_path = futures[future]
+            try:
+                result = future.result()
+                results.append({
+                    "file": file_path,
+                    "success": True,
+                    "data": result
+                })
+                logger.info(f"Successfully processed {file_path}")
+            except Exception as e:
+                logger.error(f"Failed to process {file_path}: {e}")
+                results.append({
+                    "file": file_path,
+                    "success": False,
+                    "error": str(e)
+                })
+    
+    return results
+
+# Usage
+invoice_files = [
+    "invoices/invoice_001.pdf",
+    "invoices/invoice_002.pdf",
+    "invoices/invoice_003.pdf",
+]
+
+results = process_invoice_batch(processor, invoice_files, max_workers=3)
+
+# Summarize results
+successful = sum(1 for r in results if r["success"])
+print(f"Processed {successful}/{len(results)} invoices successfully")
+```
+
+## Step 4: Add Error Handling
+
+Robust error handling for production:
+
+```python
+from requests.exceptions import HTTPError, Timeout
+
+def process_invoice_with_retry(
+    processor: InvoiceProcessor,
+    file_path: str,
+    max_retries: int = 3
+) -> Optional[Dict[str, Any]]:
+    """Process invoice with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return processor.process_invoice(file_path)
+        
+        except HTTPError as e:
+            if e.response.status_code == 402:
+                logger.error("Insufficient credits. Stopping.")
+                return None
+            
+            elif e.response.status_code == 429:
+                # Rate limited - wait and retry
+                wait_time = 2 ** attempt
+                logger.warning(f"Rate limited. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            
+            elif e.response.status_code >= 500:
+                # Server error - retry
+                if attempt < max_retries - 1:
+                    logger.error(f"Server error. Retrying attempt {attempt + 2}...")
+                    time.sleep(5)
+                    continue
+            
+            logger.error(f"HTTP error {e.response.status_code}: {e}")
+            return None
+        
+        except Timeout:
+            logger.error(f"Request timed out on attempt {attempt + 1}")
+            if attempt < max_retries - 1:
+                continue
+            return None
+        
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return None
+    
+    return None
+```
+
+## Step 5: Validate and Store Results
+
+Validate extraction results and store them:
+
+```python
+from decimal import Decimal
+
+def validate_invoice_data(data: Dict[str, Any]) -> bool:
+    """Validate extracted invoice data"""
+    errors = []
+    
+    # Required fields
+    if not data.get("invoice_number"):
+        errors.append("Missing invoice_number")
+    
+    if not data.get("total") or data["total"] <= 0:
+        errors.append("Invalid or missing total")
+    
+    # Validate line items sum
+    if "line_items" in data and data["line_items"]:
+        items_total = sum(item.get("amount", 0) for item in data["line_items"])
+        expected_subtotal = data.get("subtotal", items_total)
+        
+        if abs(items_total - expected_subtotal) > 0.01:
+            errors.append(f"Line items sum ({items_total}) doesn't match subtotal ({expected_subtotal})")
+    
+    # Validate dates
+    if "invoice_date" in data and "due_date" in data:
+        from datetime import datetime
+        try:
+            invoice_date = datetime.fromisoformat(data["invoice_date"])
+            due_date = datetime.fromisoformat(data["due_date"])
+            
+            if due_date < invoice_date:
+                errors.append("Due date is before invoice date")
+        except ValueError as e:
+            errors.append(f"Invalid date format: {e}")
+    
+    if errors:
+        logger.error(f"Validation errors: {', '.join(errors)}")
+        return False
+    
+    return True
+
+def store_invoice_data(data: Dict[str, Any], database):
+    """Store invoice in database"""
+    if not validate_invoice_data(data):
+        raise ValueError("Invalid invoice data")
+    
+    # Example: Store in database
+    invoice_record = {
+        "invoice_number": data["invoice_number"],
+        "invoice_date": data["invoice_date"],
+        "vendor_name": data["vendor"]["name"],
+        "total_amount": Decimal(str(data["total"])),
+        "currency": data.get("currency", "USD"),
+        "line_items": data["line_items"],
+        "raw_data": data  # Store complete extraction
+    }
+    
+    database.invoices.insert_one(invoice_record)
+    logger.info(f"Stored invoice {data['invoice_number']}")
+```
+
+## Step 6: Build a Complete Pipeline
+
+Put it all together:
+
+```python
+import sys
+from pathlib import Path
+
+def main():
+    # Initialize processor
+    api_key = os.getenv("DOCUMIND_API_KEY")
+    if not api_key:
+        print("Error: DOCUMIND_API_KEY environment variable not set")
+        sys.exit(1)
+    
+    processor = InvoiceProcessor(api_key)
+    
+    # Find all invoices in directory
+    invoice_dir = Path("invoices/pending")
+    invoice_files = list(invoice_dir.glob("*.pdf"))
+    
+    if not invoice_files:
+        print("No invoices found")
+        return
+    
+    print(f"Found {len(invoice_files)} invoices to process")
+    
+    # Process in batches
+    results = process_invoice_batch(processor, [str(f) for f in invoice_files])
+    
+    # Validate and store successful results
+    for result in results:
+        if result["success"]:
+            data = result["data"]["data"]
+            
+            if validate_invoice_data(data):
+                # store_invoice_data(data, database)
+                print(f"✓ {result['file']}: {data['invoice_number']} - ${data['total']}")
+            else:
+                print(f"✗ {result['file']}: Validation failed")
+        else:
+            print(f"✗ {result['file']}: {result['error']}")
+    
+    # Summary
+    successful = sum(1 for r in results if r["success"])
+    print(f"\nProcessed {successful}/{len(results)} invoices successfully")
+
+if __name__ == "__main__":
+    main()
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Form Extraction" icon="file-lines" href="/guides/tutorials/form-extraction">
+  Learn to extract form data
+</Card>
+
+<Card title="Batch Processing" icon="layer-group" href="/guides/tutorials/batch-processing">
+  Scale to thousands of documents
+</Card>
+
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Master schema design patterns
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+  Build robust production systems
+</Card>
+</CardGroup>
+
+## Complete Example Repository
+
+Download the complete working example:
+```bash
+git clone https://github.com/documind/invoice-processing-tutorial
+cd invoice-processing-tutorial
+pip install -r requirements.txt
+export DOCUMIND_API_KEY=your_key_here
+python process_invoices.py
+```
+
+<Tip>
+**Production Tips:**
+- Use environment variables for API keys
+- Implement proper logging and monitoring
+- Add database storage for results
+- Set up alerts for failed extractions
+- Monitor credit usage daily
+</Tip>
+

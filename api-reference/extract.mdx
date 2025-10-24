@@ -1,0 +1,149 @@
+---
+title: "Extract Data"
+description: "Extract structured data from a document"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/extract/{document_id}
+```
+
+## Authentication
+
+Requires `write:extractions` scope.
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the uploaded document |
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `schema` | object | Yes | JSON Schema defining fields to extract |
+| `prompt` | string | No | Custom extraction instructions |
+| `model` | string | No | Model for Basic mode: `google-gemini-2.0-flash`, `openai-gpt-4.1`, or `openai-gpt-4o` |
+| `extraction_mode` | string | No | Set to `vlm` for VLM mode |
+| `review_threshold` | number | No | Confidence threshold for review (0-100, default: 80) |
+
+<Note>
+**Extraction Modes:**
+- **Basic**: Set `model` parameter (2-6 credits/page)
+- **VLM**: Set `extraction_mode` to `vlm` (10 credits/page)
+- **Advanced**: Don't set `model` or `extraction_mode` (15 credits/page with confidence scoring)
+</Note>
+
+## Response
+
+### Success (200)
+
+```json
+{
+  "document_id": "123e4567-e89b-12d3-a456-426614174000",
+  "results": {
+    "invoice_number": "INV-2024-001",
+    "total": 1250.00,
+    "vendor": {
+      "name": "Acme Corp"
+    }
+  },
+  "needs_review": false,
+  "needs_review_metadata": {
+    "confidence_scores": {},
+    "review_flags": {}
+  }
+}
+```
+
+## Examples
+
+<CodeGroup>
+```python Python
+import requests
+
+API_KEY = "your_api_key"
+document_id = "123e4567-e89b-12d3-a456-426614174000"
+
+schema = {
+    "type": "object",
+    "named_entities": {
+        "invoice_number": {"type": "string"},
+        "total": {"type": "number"}
+    },
+    "required": ["invoice_number", "total"]
+}
+
+# Basic mode
+response = requests.post(
+    f"https://api.documind.cloud/api/v1/extract/{document_id}",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "schema": schema,
+        "model": "google-gemini-2.0-flash"
+    }
+)
+
+result = response.json()
+print(f"Invoice: {result['results']['invoice_number']}")
+print(f"Total: ${result['results']['total']}")
+```
+
+```javascript Node.js
+const axios = require('axios');
+
+const API_KEY = 'your_api_key';
+const documentId = '123e4567-e89b-12d3-a456-426614174000';
+
+const schema = {
+  type: 'object',
+  named_entities: {
+    invoice_number: { type: 'string' },
+    total: { type: 'number' }
+  },
+  required: ['invoice_number', 'total']
+};
+
+// Advanced mode (with review)
+const response = await axios.post(
+  `https://api.documind.cloud/api/v1/extract/${documentId}`,
+  {
+    schema: schema,
+    review_threshold: 85
+  },
+  {
+    headers: { 'X-API-Key': API_KEY }
+  }
+);
+
+if (response.data.needs_review) {
+  console.log('Extraction needs review');
+} else {
+  console.log('Results:', response.data.results);
+}
+```
+</CodeGroup>
+
+## Error Responses
+
+| Code | Description |
+|------|-------------|
+| 400 | Invalid schema or parameters |
+| 402 | Insufficient credits |
+| 404 | Document not found |
+| 500 | Extraction failed |
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Upload Documents" icon="upload" href="/api-reference/upload">
+  Upload documents first
+</Card>
+
+<Card title="List Extractions" icon="list" href="/api-reference/list-extractions">
+  Query extraction results
+</Card>
+</CardGroup>
+

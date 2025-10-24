@@ -1,0 +1,33 @@
+---
+title: "Get User Settings"
+description: "Get current user's settings and preferences"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/user/settings
+```
+
+## Response
+
+```json
+{
+  "user_id": "user-id",
+  "default_prompts": {...},
+  "custom_schemas": {...},
+  "extraction_preferences": {...}
+}
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/user/settings",
+    headers={"X-API-Key": API_KEY}
+)
+
+settings = response.json()
+```
+

@@ -1,0 +1,399 @@
+---
+title: "Prompt Design Guide"
+description: "Craft effective prompts for better extraction results"
+---
+
+## Introduction
+
+While schemas define **what** to extract, prompts guide **how** to extract it. A well-crafted prompt can significantly improve extraction accuracy, especially for edge cases and ambiguous documents.
+
+## Prompt Basics
+
+### Default Behavior
+
+If you don't provide a prompt, Documind uses a generic extraction instruction:
+
+```json
+{
+  "schema": {...},
+  "prompt": null  // Uses default: "Extract the requested information accurately"
+}
+```
+
+### Custom Prompts
+
+Add specific instructions to improve accuracy:
+
+```json
+{
+  "schema": {...},
+  "prompt": "Extract invoice information. Use MM/DD/YYYY format for dates. If a field is not found, return null rather than guessing."
+}
+```
+
+## Prompt Structure
+
+### Effective Prompt Template
+
+```
+[Task] + [Context] + [Instructions] + [Constraints]
+```
+
+**Example:**
+```
+Extract invoice information from this document. 
+The document is a standard business invoice. 
+Focus on the header section for invoice number and date. 
+Use MM/DD/YYYY format for all dates. 
+If any field is unclear or missing, return null.
+```
+
+## Best Practices
+
+### 1. Be Specific About Formats
+
+<Tabs>
+<Tab title="❌ Vague">
+```json
+{
+  "prompt": "Extract the date"
+}
+```
+</Tab>
+
+<Tab title="✅ Specific">
+```json
+{
+  "prompt": "Extract the invoice date in YYYY-MM-DD format. Look for labels like 'Invoice Date', 'Date', or 'Issued On'."
+}
+```
+</Tab>
+</Tabs>
+
+### 2. Handle Ambiguity
+
+Documents often have multiple similar values. Guide the extraction:
+
+```json
+{
+  "prompt": "Extract the TOTAL amount (not subtotal, not tax). This is usually the last amount in the document, often labeled 'Total', 'Amount Due', or 'Total Amount'."
+}
+```
+
+### 3. Define Edge Cases
+
+Tell the AI how to handle missing or unusual data:
+
+```json
+{
+  "prompt": "Extract customer information. If customer name is not found, check for 'Bill To' or 'Client' labels. If still not found, return null rather than using vendor name."
+}
+```
+
+### 4. Specify Units and Currency
+
+```json
+{
+  "prompt": "Extract amounts in USD. If the document uses another currency, convert to USD. Include only the numeric value without currency symbols."
+}
+```
+
+### 5. Handle Multiple Values
+
+```json
+{
+  "prompt": "Extract all line items from the invoice table. Include ALL rows, even if some fields are empty. Do not skip rows or merge similar items."
+}
+```
+
+## Domain-Specific Prompts
+
+### Invoices
+
+```
+Extract invoice information accurately. 
+Invoice number is typically in the header, labeled 'Invoice #' or 'Invoice Number'.
+Dates should be in YYYY-MM-DD format.
+For line items, extract ALL rows from the items table including item description, quantity, unit price, and total.
+The total amount is the final amount including tax, usually at the bottom right.
+If a field is not clearly visible, return null.
+```
+
+### Receipts
+
+```
+Extract receipt information from this transaction.
+Merchant name is usually at the top in large text.
+Date and time are typically near the top or bottom.
+Extract all individual items purchased with their prices.
+The total is the final amount paid, including tax and tip if applicable.
+Look for payment method near the bottom (cash, card, etc.).
+```
+
+### Forms
+
+```
+Extract form data carefully, preserving exact field names from the form.
+For checkboxes, return true if checked, false if unchecked.
+For dropdowns/selections, return the selected option exactly as written.
+Leave optional fields null if not filled in.
+Pay attention to multi-part fields like full name (first/last) or address (street/city/state/zip).
+```
+
+### Contracts
+
+```
+Extract key contract information.
+Contract number and date are typically in the header.
+Party names are usually labeled 'Party A', 'Party B', 'Client', 'Vendor', etc.
+Effective date and end date are in the terms section.
+Extract key obligations and terms exactly as written.
+For monetary amounts, include the full amount with any payment schedule details.
+```
+
+## Prompt Patterns
+
+### Pattern 1: Clarify Location
+
+Help the AI know where to look:
+
+```
+"Invoice number is in the top-right corner of the first page."
+"Line items are in the table in the middle of the page."
+"Total amount is at the bottom-right, usually in bold."
+```
+
+### Pattern 2: Provide Examples
+
+Show expected values:
+
+```
+"Extract the invoice number (examples: INV-2024-001, 2024-INV-123, Invoice-0045)."
+"Phone number in format (123) 456-7890 or 123-456-7890."
+```
+
+### Pattern 3: Define Fallbacks
+
+Handle missing data gracefully:
+
+```
+"Extract vendor name. If not found, check for 'From:', 'Seller:', or 'Company Name:' labels. If still missing, return null."
+```
+
+### Pattern 4: Normalize Data
+
+Ensure consistent output:
+
+```
+"Extract state name. Convert to 2-letter abbreviation (e.g., California → CA, New York → NY)."
+"Extract phone number. Remove all formatting, return only digits."
+```
+
+### Pattern 5: Handle Calculations
+
+Guide computed fields:
+
+```
+"For each line item, calculate the total as quantity × unit_price. Verify against any pre-printed total for that line."
+```
+
+## Advanced Techniques
+
+### Multi-Document Types
+
+If processing various document types:
+
+```json
+{
+  "prompt": "This may be an invoice, receipt, or purchase order. First identify the document type, then extract relevant information based on that type. For invoices, focus on invoice number and due date. For receipts, focus on transaction time. For POs, focus on PO number and delivery date."
+}
+```
+
+### Language-Specific Instructions
+
+For multi-language documents:
+
+```json
+{
+  "prompt": "Document may be in English, Spanish, or French. Extract information regardless of language, but return all values in English. Translate field values where appropriate."
+}
+```
+
+### Quality Checks
+
+Add validation hints:
+
+```json
+{
+  "prompt": "Extract invoice information. Verify that line item totals sum to the subtotal. Invoice number should not contain spaces. Date should be in the past, not future."
+}
+```
+
+### Contextual Hints
+
+Provide business context:
+
+```json
+{
+  "prompt": "This is a medical invoice. 'Procedure codes' are 5-digit numbers. 'Diagnosis codes' start with a letter. Extract both separately. Insurance information is typically in a box on the right side."
+}
+```
+
+## Combining Prompts with Schemas
+
+Schemas and prompts work together:
+
+```json
+{
+  "schema": {
+    "type": "object",
+    "named_entities": {
+      "invoice_date": {
+        "type": "string",
+        "description": "Invoice issue date",  // Schema describes the field
+        "format": "date"
+      }
+    }
+  },
+  "prompt": "Extract the invoice date from the header section. It's usually labeled 'Invoice Date' or just 'Date'. Use YYYY-MM-DD format."  // Prompt provides extraction hints
+}
+```
+
+## Testing Prompts
+
+### A/B Testing
+
+Compare different prompts on the same document:
+
+```python
+prompts = [
+    "Extract invoice information",
+    "Extract invoice information. Look for invoice number in the top-right corner.",
+    "Extract invoice information accurately. Invoice number is in the header, typically top-right. Use YYYY-MM-DD for dates."
+]
+
+results = []
+for prompt in prompts:
+    result = extract(document_id, schema, prompt)
+    results.append(result)
+
+# Compare accuracy
+for i, result in enumerate(results):
+    print(f"Prompt {i+1}: {result}")
+```
+
+### Prompt Iteration
+
+1. **Start generic**: Use a simple prompt
+2. **Review errors**: Note common mistakes
+3. **Add specifics**: Address errors in prompt
+4. **Test again**: Verify improvements
+5. **Refine**: Continue until satisfied
+
+## Common Mistakes
+
+### ❌ Too Verbose
+
+```json
+{
+  "prompt": "Please kindly extract the invoice information from this document. We need you to carefully look at the document and find the invoice number, which might be in the header or somewhere else, and then also find the date, making sure to format it correctly, and also find the vendor name, being careful not to confuse it with the customer name, and also..."
+}
+```
+
+**Problem:** Too much information confuses the model.  
+**Solution:** Be concise and direct.
+
+### ❌ Contradicting Schema
+
+```json
+{
+  "schema": {
+    "invoice_date": {
+      "type": "string",
+      "format": "date"  // Expects YYYY-MM-DD
+    }
+  },
+  "prompt": "Use MM/DD/YYYY format for dates"  // Contradicts schema!
+}
+```
+
+**Problem:** Confusion leads to inconsistent results.  
+**Solution:** Ensure prompt and schema align.
+
+### ❌ No Guidance for Edge Cases
+
+```json
+{
+  "prompt": "Extract invoice data"
+}
+```
+
+**Problem:** No guidance for missing fields, multiple values, or ambiguous data.  
+**Solution:** Add edge case handling.
+
+### ❌ Assuming Document Structure
+
+```json
+{
+  "prompt": "Extract the invoice number from the top-right corner"
+}
+```
+
+**Problem:** Not all invoices follow this layout.  
+**Solution:** Provide multiple possible locations or labels.
+
+## Prompt Templates
+
+### General-Purpose Template
+
+```
+Extract {document_type} information from this document.
+Focus on accuracy over speed.
+For dates, use {date_format} format.
+For amounts, include only numeric values without currency symbols.
+If a field is not found or unclear, return null.
+Verify that extracted values match the document exactly.
+```
+
+### Strict Validation Template
+
+```
+Extract {fields} from this {document_type}.
+Follow these rules strictly:
+1. {Rule 1}
+2. {Rule 2}
+3. {Rule 3}
+If any rule cannot be followed, return null for that field.
+Double-check all numeric values for accuracy.
+```
+
+### Flexible Template
+
+```
+Extract available information from this document.
+The document may be a {type1}, {type2}, or {type3}.
+Adapt extraction based on document type.
+Extract as many fields as possible, leaving missing fields as null.
+Prioritize accuracy over completeness.
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Schema Design" icon="pencil" href="/guides/schema-design">
+  Design schemas that work with your prompts
+</Card>
+
+<Card title="Invoice Tutorial" icon="file-invoice" href="/guides/tutorials/invoice-processing">
+  See prompts in action for invoice processing
+</Card>
+
+<Card title="Core Concepts" icon="book" href="/guides/core-concepts">
+  Understand how prompts fit into the extraction workflow
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/extract">
+  See the extraction API with prompt parameter
+</Card>
+</CardGroup>
+

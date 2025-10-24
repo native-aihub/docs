@@ -1,0 +1,479 @@
+---
+title: "Quick Start"
+description: "Extract data from your first document in 5 minutes"
+---
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- A Documind account with available credits
+- An API key (see [Authentication](/api/authentication))
+- A document to process (PDF, DOCX, JPG, or PNG)
+
+## Complete Example
+
+This guide walks through a complete extraction workflow: upload → extract → handle results.
+
+<Steps>
+<Step title="Upload Document">
+  Upload your document and receive a document ID.
+  
+  <CodeGroup>
+  ```bash cURL
+  curl -X POST https://api.documind.com/api/v1/upload \
+    -H 'X-API-Key: YOUR_API_KEY' \
+    -F 'files=@invoice.pdf'
+  ```
+  
+  ```python Python
+  import requests
+  
+  API_KEY = "your_api_key_here"
+  headers = {"X-API-Key": API_KEY}
+  
+  with open("invoice.pdf", "rb") as f:
+      files = {"files": f}
+      response = requests.post(
+          "https://api.documind.com/api/v1/upload",
+          headers=headers,
+          files=files
+      )
+  
+  document_ids = response.json()
+  document_id = document_ids[0]
+  print(f"Document ID: {document_id}")
+  ```
+  
+  ```javascript Node.js
+  const formData = new FormData();
+  formData.append('files', fs.createReadStream('invoice.pdf'));
+  
+  const response = await fetch('https://api.documind.com/api/v1/upload', {
+    method: 'POST',
+    headers: {
+      'X-API-Key': process.env.API_KEY
+    },
+    body: formData
+  });
+  
+  const documentIds = await response.json();
+  const documentId = documentIds[0];
+  console.log(`Document ID: ${documentId}`);
+  ```
+  </CodeGroup>
+  
+  <ResponseExample>
+  ```json Success Response
+  [
+    "550e8400-e29b-41d4-a716-446655440000"
+  ]
+  ```
+  </ResponseExample>
+</Step>
+
+<Step title="Define Extraction Schema">
+  Create a JSON schema defining what data to extract.
+  
+  ```json Invoice Schema
+  {
+    "named_entities": {
+      "invoice_number": {
+        "type": "string",
+        "description": "The invoice number"
+      },
+      "invoice_date": {
+        "type": "string",
+        "description": "Date of invoice"
+      },
+      "vendor_name": {
+        "type": "string",
+        "description": "Name of the vendor"
+      },
+      "total_amount": {
+        "type": "number",
+        "description": "Total invoice amount"
+      },
+      "line_items": {
+        "type": "array",
+        "description": "Individual line items",
+        "items": {
+          "type": "object",
+          "named_entities": {
+            "description": {
+              "type": "string",
+              "description": "Item description"
+            },
+            "quantity": {
+              "type": "number",
+              "description": "Quantity ordered"
+            },
+            "unit_price": {
+              "type": "number",
+              "description": "Price per unit"
+            },
+            "amount": {
+              "type": "number",
+              "description": "Line total"
+            }
+          }
+        }
+      }
+    },
+    "required": ["invoice_number", "total_amount"]
+  }
+  ```
+  
+  <Tip>
+  Mark critical fields as `required` to enable automatic review flagging if confidence is low.
+  </Tip>
+</Step>
+
+<Step title="Extract Data">
+  Process the document with your schema.
+  
+  <CodeGroup>
+  ```bash cURL
+  curl -X POST https://api.documind.com/api/v1/extract/550e8400-e29b-41d4-a716-446655440000 \
+    -H 'X-API-Key: YOUR_API_KEY' \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "schema": {
+        "named_entities": {
+          "invoice_number": {"type": "string"},
+          "total_amount": {"type": "number"}
+        },
+        "required": ["invoice_number", "total_amount"]
+      },
+      "prompt": "Extract invoice details",
+      "model": "openai-gpt-4.1",
+      "review_threshold": 80
+    }'
+  ```
+  
+  ```python Python
+  import requests
+  import json
+  
+  extract_data = {
+      "schema": invoice_schema,
+      "prompt": "Extract all invoice details accurately",
+      "model": "openai-gpt-4.1",  # Basic extraction
+      "review_threshold": 80
+  }
+  
+  response = requests.post(
+      f"https://api.documind.com/api/v1/extract/{document_id}",
+      headers={
+          "X-API-Key": API_KEY,
+          "Content-Type": "application/json"
+      },
+      json=extract_data
+  )
+  
+  result = response.json()
+  print(json.dumps(result, indent=2))
+  ```
+  
+  ```javascript Node.js
+  const extractionConfig = {
+    schema: invoiceSchema,
+    prompt: "Extract all invoice details accurately",
+    model: "openai-gpt-4.1",
+    review_threshold: 80
+  };
+  
+  const response = await fetch(
+    `https://api.documind.com/api/v1/extract/${documentId}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-API-Key': process.env.API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(extractionConfig)
+    }
+  );
+  
+  const result = await response.json();
+  console.log(JSON.stringify(result, null, 2));
+  ```
+  </CodeGroup>
+  
+  <ResponseExample>
+  ```json Success Response
+  {
+    "document_id": "550e8400-e29b-41d4-a716-446655440000",
+    "results": {
+      "invoice_number": "INV-2024-001",
+      "invoice_date": "2024-01-15",
+      "vendor_name": "Acme Corp",
+      "total_amount": 1250.00,
+      "line_items": [
+        {
+          "description": "Widget A",
+          "quantity": 10,
+          "unit_price": 50.00,
+          "amount": 500.00
+        },
+        {
+          "description": "Widget B",
+          "quantity": 15,
+          "unit_price": 50.00,
+          "amount": 750.00
+        }
+      ]
+    },
+    "needs_review": false,
+    "needs_review_metadata": {}
+  }
+  ```
+  </ResponseExample>
+</Step>
+
+<Step title="Handle Review Workflow">
+  If `needs_review` is `true`, implement polling to wait for human review.
+  
+  <CodeGroup>
+  ```python Python
+  import time
+  
+  def wait_for_review(document_id, timeout=300, poll_interval=10):
+      """
+      Poll extraction status until reviewed or timeout.
+      Returns the reviewed results.
+      """
+      start_time = time.time()
+      
+      while (time.time() - start_time) < timeout:
+          # Get extraction by document_id
+          response = requests.get(
+              f"https://api.documind.com/api/v1/data/extractions",
+              headers={"X-API-Key": API_KEY},
+              params={"document_id": document_id, "limit": 1}
+          )
+          
+          data = response.json()
+          if data["items"]:
+              extraction = data["items"][0]
+              
+              if extraction["is_reviewed"]:
+                  print("✓ Review completed!")
+                  return extraction["reviewed_results"]
+              
+              print(f"⏳ Waiting for review... ({poll_interval}s)")
+          
+          time.sleep(poll_interval)
+      
+      raise TimeoutError("Review timeout exceeded")
+  
+  # Usage
+  if result["needs_review"]:
+      print("⚠️  Document needs review")
+      reviewed_data = wait_for_review(document_id)
+      process_invoice(reviewed_data)
+  else:
+      process_invoice(result["results"])
+  ```
+  
+  ```javascript Node.js
+  async function waitForReview(documentId, timeout = 300000, pollInterval = 10000) {
+    const startTime = Date.now();
+    
+    while ((Date.now() - startTime) < timeout) {
+      const response = await fetch(
+        `https://api.documind.com/api/v1/data/extractions?document_id=${documentId}&limit=1`,
+        {
+          headers: {
+            'X-API-Key': process.env.API_KEY
+          }
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.items.length > 0) {
+        const extraction = data.items[0];
+        
+        if (extraction.is_reviewed) {
+          console.log('✓ Review completed!');
+          return extraction.reviewed_results;
+        }
+        
+        console.log(`⏳ Waiting for review... (${pollInterval/1000}s)`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+    
+    throw new Error('Review timeout exceeded');
+  }
+  
+  // Usage
+  if (result.needs_review) {
+    console.log('⚠️  Document needs review');
+    const reviewedData = await waitForReview(documentId);
+    await processInvoice(reviewedData);
+  } else {
+    await processInvoice(result.results);
+  }
+  ```
+  </CodeGroup>
+  
+  <Check>
+  Your automation now handles both immediate results and reviewed data seamlessly!
+  </Check>
+</Step>
+</Steps>
+
+## Extraction Mode Comparison
+
+Choose the right mode for your use case:
+
+<Tabs>
+<Tab title="Basic (Fastest)">
+  **Best for**: Simple documents, high-volume processing
+  
+  ```json Request
+  {
+    "schema": {...},
+    "model": "google-gemini-2.0-flash",  // 2 credits/page
+    "prompt": "Extract invoice data"
+  }
+  ```
+  
+  - Fastest processing
+  - Single model
+  - No confidence scores
+  - No automatic review flagging
+</Tab>
+
+<Tab title="VLM (Balanced)">
+  **Best for**: Scanned documents, forms with complex layouts
+  
+  ```json Request
+  {
+    "schema": {...},
+    "extraction_mode": "vlm",  // 10 credits/page
+    "review_threshold": 80,
+    "prompt": "Extract form fields"
+  }
+  ```
+  
+  - Visual document processing
+  - Multiple VLM models
+  - Includes confidence scores
+  - Automatic review flagging
+</Tab>
+
+<Tab title="Advanced (Most Accurate)">
+  **Best for**: Critical documents, invoices, structured forms
+  
+  ```json Request
+  {
+    "schema": {...},
+    // Advanced mode: don't set 'model' or 'extraction_mode' - 15 credits/page
+    "review_threshold": 85,
+    "prompt": "Extract all fields with high accuracy"
+  }
+  ```
+  
+  - Highest accuracy
+  - Multi-model ensemble extraction
+  - Detailed confidence scores
+  - Automatic review flagging
+</Tab>
+</Tabs>
+
+## Common Patterns
+
+### Batch Processing
+
+Process multiple documents in parallel:
+
+```python Python
+import concurrent.futures
+
+def process_document(file_path):
+    # Upload
+    document_id = upload_document(file_path)
+    
+    # Extract
+    result = extract_data(document_id, schema)
+    
+    # Handle review if needed
+    if result["needs_review"]:
+        return wait_for_review(document_id)
+    return result["results"]
+
+# Process 10 documents concurrently
+with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    results = list(executor.map(process_document, document_files))
+```
+
+### Error Handling
+
+Handle common error scenarios:
+
+```python Python
+try:
+    result = extract_data(document_id, schema)
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 402:
+        print("Insufficient credits - please upgrade")
+    elif e.response.status_code == 403:
+        print("Document access denied")
+    elif e.response.status_code == 500:
+        print("Extraction failed - retry or contact support")
+    else:
+        print(f"Error: {e}")
+```
+
+### Check Credits Before Processing
+
+Avoid failures by checking credits first:
+
+```python Python
+response = requests.get(
+    "https://api.documind.com/usage/credits",
+    headers={"X-API-Key": API_KEY}
+)
+
+credits = response.json()
+if credits["available_credits"] < 100:
+    print("⚠️  Low credits - consider waiting for daily refresh")
+```
+
+## Testing Your Integration
+
+Use these test scenarios:
+
+1. **Simple Document**: Single-page invoice with clear text
+2. **Complex Layout**: Multi-column form or table
+3. **Poor Quality**: Scanned or low-resolution image
+4. **Edge Cases**: Missing fields, unusual formats
+
+<Tip>
+Start with Basic extraction for testing, then upgrade to Advanced for production.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Extraction Flow" icon="diagram-project" href="/api/extraction/extraction-flow">
+  Deep dive into the complete extraction workflow
+</Card>
+
+<Card title="Review Polling" icon="rotate" href="/api/review/polling-pattern">
+  Advanced patterns for handling reviews in automation
+</Card>
+
+<Card title="Data Endpoints" icon="database" href="/api/data/list-extractions">
+  Query and filter extraction results
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/api/patterns/error-handling">
+  Robust error handling strategies
+</Card>
+</CardGroup>
+

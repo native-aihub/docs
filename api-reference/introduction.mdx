@@ -1,33 +1,189 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Complete reference for the Documind API"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Base URL
 
-## Welcome
-
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+```
+https://api.documind.cloud/api/v1
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API requests must include your API key in the `X-API-Key` header:
+
+```bash
+X-API-Key: YOUR_API_KEY
+```
+
+### Creating API Keys
+
+Create API keys in the [Documind Dashboard](https://app.documind.cloud/api-keys).
+
+<Warning>
+Never share your API keys or commit them to version control. Use environment variables to store them securely.
+</Warning>
+
+## Request Format
+
+All API requests use JSON format:
+
+```bash
+curl https://api.documind.cloud/api/v1/extract/{document_id} \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"schema": {...}, "model": "google-gemini-2.0-flash"}'
+```
+
+## Response Format
+
+All successful responses return JSON with a 200 status code:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "document_id": "123e4567-e89b-12d3-a456-426614174000",
+  "results": {...},
+  "needs_review": false
+}
 ```
+
+## Error Responses
+
+Errors return appropriate HTTP status codes with details:
+
+```json
+{
+  "detail": "Error message describing what went wrong"
+}
+```
+
+### Common Status Codes
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| 200 | OK | Request succeeded |
+| 400 | Bad Request | Invalid parameters |
+| 401 | Unauthorized | Invalid/missing API key |
+| 402 | Payment Required | Insufficient credits |
+| 403 | Forbidden | Insufficient permissions |
+| 404 | Not Found | Resource not found |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server error |
+
+## Rate Limits
+
+Rate limits vary by subscription tier. Monitor your usage via the `/usage/current` endpoint.
+
+## Pagination
+
+List endpoints support pagination:
+
+```bash
+GET /api/v1/data/extractions?skip=0&limit=100
+```
+
+Parameters:
+- `skip`: Number of items to skip (default: 0)
+- `limit`: Maximum items to return (default: 100, max: 1000)
+
+Response includes pagination metadata:
+
+```json
+{
+  "items": [...],
+  "total": 500,
+  "skip": 0,
+  "limit": 100
+}
+```
+
+## Filtering
+
+Many endpoints support filtering by query parameters:
+
+```bash
+GET /api/v1/data/extractions?needs_review=true&created_after=2024-01-01
+```
+
+## Sorting
+
+List endpoints support sorting:
+
+```bash
+GET /api/v1/data/extractions?sort_by=created_at&sort_order=desc
+```
+
+## Idempotency
+
+Upload operations are idempotent within a short time window. If you upload the same file multiple times within 5 minutes, you'll receive the same document ID.
+
+## Webhooks
+
+Webhook support is coming soon. For now, use polling to check extraction status.
+
+## API Versioning
+
+The API is versioned via the URL (`/api/v1/`). Breaking changes will be introduced in new versions (`/api/v2/`), while the current version will remain supported.
+
+## SDKs and Client Libraries
+
+Official SDKs:
+- Python SDK (coming soon)
+- Node.js SDK (coming soon)
+- REST API (available now)
+
+## Endpoint Categories
+
+<CardGroup cols={2}>
+<Card title="Core Endpoints" icon="bolt" href="/api-reference/upload">
+  Upload, extract, and generate schemas
+</Card>
+
+<Card title="Data & Querying" icon="database" href="/api-reference/list-extractions">
+  Query and filter extractions
+</Card>
+
+<Card title="Documents" icon="file" href="/api-reference/list-documents">
+  Manage uploaded documents
+</Card>
+
+<Card title="API Keys" icon="key" href="/api-reference/create-api-key">
+  Create and manage API keys
+</Card>
+
+<Card title="User Settings" icon="gear" href="/api-reference/get-settings">
+  Manage user preferences and schemas
+</Card>
+
+<Card title="Usage & Credits" icon="chart-line" href="/api-reference/get-usage">
+  Monitor usage and credits
+</Card>
+</CardGroup>
+
+## Getting Help
+
+- **Documentation**: Browse the guides and tutorials
+- **API Status**: Check [status.documind.cloud](https://status.documind.cloud)
+- **Support**: Email support@documind.cloud
+- **Community**: Join our [Discord](https://discord.gg/documind)
+
+## Quick Links
+
+<CardGroup cols={2}>
+<Card title="Upload Documents" icon="upload" href="/api-reference/upload">
+  POST /upload
+</Card>
+
+<Card title="Extract Data" icon="brain" href="/api-reference/extract">
+  POST /extract/{document_id}
+</Card>
+
+<Card title="List Extractions" icon="list" href="/api-reference/list-extractions">
+  GET /data/extractions
+</Card>
+
+<Card title="Get Credits" icon="coins" href="/api-reference/get-credits">
+  GET /usage/credits
+</Card>
+</CardGroup>
