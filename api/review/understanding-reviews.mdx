@@ -146,18 +146,26 @@ If `optional_notes` has low confidence → No review needed
 ### Decision Flow
 
 ```python
-def process_extraction(document_id, schema):
+import requests
+
+def process_extraction(document_id, schema, api_key):
     # Extract with Advanced mode
-    result = extract_data(
-        document_id, 
-        schema,
-        # Advanced mode - don't set model or extraction_mode 
-        review_threshold=85
+    response = requests.post(
+        f"https://api.documind.com/api/v1/extract/{document_id}",
+        headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+        json={
+            "schema": schema,
+            # Advanced mode - don't set model or extraction_mode 
+            "review_threshold": 85,
+            "prompt": "Extract data accurately"
+        }
     )
+    result = response.json()
     
     if result["needs_review"]:
-        # Option 1: Wait for review (polling)
-        reviewed_data = wait_for_review(document_id)
+        # Option 1: Wait for review (polling) - direct team to UI
+        print("⚠️ Review needed - direct team to: https://app.documind.com/review")
+        reviewed_data = wait_for_review(document_id, api_key)
         return reviewed_data
     else:
         # Option 2: Use immediate results
@@ -173,16 +181,22 @@ def process_extraction(document_id, schema):
   Poll until `is_reviewed = true`:
   
   ```python
+  import requests
   import time
   
-  def wait_for_review(document_id, timeout=300):
+  def wait_for_review(document_id, api_key, timeout=300):
       start = time.time()
       
       while (time.time() - start) < timeout:
-          extraction = get_extraction_by_document(document_id)
+          response = requests.get(
+              "https://api.documind.com/api/v1/data/extractions",
+              headers={"X-API-Key": api_key},
+              params={"document_id": document_id, "limit": 1}
+          )
+          data = response.json()
           
-          if extraction["is_reviewed"]:
-              return extraction["reviewed_results"]
+          if data["items"] and data["items"][0]["is_reviewed"]:
+              return data["items"][0]["reviewed_results"]
           
           time.sleep(10)  # Poll every 10 seconds
       
@@ -216,15 +230,28 @@ def process_extraction(document_id, schema):
   Check review status at specific times:
   
   ```python
+  import requests
+  
+  API_KEY = "your_api_key"
+  
   # Morning: Extract documents
   for doc in daily_documents:
-      extract_data(doc.id, schema)
+      requests.post(
+          f"https://api.documind.com/api/v1/extract/{doc.id}",
+          headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
+          json={"schema": schema, "prompt": "Extract data"}
+      )
   
   # Afternoon: Process reviewed documents
-  extractions = get_extractions(
-      is_reviewed=True,
-      created_after=today_start
+  response = requests.get(
+      "https://api.documind.com/api/v1/data/extractions",
+      headers={"X-API-Key": API_KEY},
+      params={
+          "is_reviewed": True,
+          "created_after": today_start
+      }
   )
+  extractions = response.json()["items"]
   
   for extraction in extractions:
       process_data(extraction["reviewed_results"])
@@ -314,7 +341,7 @@ if result["needs_review"]:
   
   ```python
   try:
-      reviewed = wait_for_review(doc_id, timeout=600)
+      reviewed = wait_for_review(doc_id, api_key, timeout=600)
       process_data(reviewed)
   except TimeoutError:
       # Escalate or use original extraction

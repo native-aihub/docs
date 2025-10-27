@@ -98,12 +98,20 @@ def poll_for_review(
     return None
 
 # Usage
+import requests
+
 API_KEY = "your_api_key"
 
-result = extract_data(document_id, schema)
+# Extract data first
+response = requests.post(
+    f"https://api.documind.com/api/v1/extract/{document_id}",
+    headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
+    json={"schema": schema, "prompt": "Extract data"}
+)
+result = response.json()
 
 if result["needs_review"]:
-    print("⚠️  Document needs human review")
+    print("⚠️  Document needs human review - direct team to: https://app.documind.com/review")
     
     reviewed_data = poll_for_review(
         document_id=result["document_id"],
@@ -628,7 +636,13 @@ class ReviewPoller:
 # Usage
 poller = ReviewPoller(api_key=API_KEY)
 
-result = extract_data(document_id, schema)
+# Extract data
+response = requests.post(
+    f"https://api.documind.com/api/v1/extract/{document_id}",
+    headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
+    json={"schema": schema, "prompt": "Extract data"}
+)
+result = response.json()
 
 if result["needs_review"]:
     reviewed = poller.poll(

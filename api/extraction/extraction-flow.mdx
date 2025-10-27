@@ -30,7 +30,17 @@ graph TD
   Submit documents via `POST /upload`. Supports batching up to 100 files.
   
   ```python
-  document_ids = upload_documents(["invoice1.pdf", "invoice2.pdf"])
+  import requests
+  
+  response = requests.post(
+      "https://api.documind.com/api/v1/upload",
+      headers={"X-API-Key": "your_api_key"},
+      files=[
+          ("files", open("invoice1.pdf", "rb")),
+          ("files", open("invoice2.pdf", "rb"))
+      ]
+  )
+  document_ids = response.json()
   # Returns: ["uuid1", "uuid2"]
   ```
   
@@ -44,8 +54,8 @@ graph TD
   ```python
   # Map filenames to IDs for tracking
   doc_mapping = {
-      "invoice1.pdf": "uuid1",
-      "invoice2.pdf": "uuid2"
+      "invoice1.pdf": document_ids[0],
+      "invoice2.pdf": document_ids[1]
   }
   ```
 </Step>
@@ -56,17 +66,16 @@ graph TD
 Choose one of three approaches:
 
 <Tabs>
-<Tab title="Predefined Schema">
-  Use built-in templates for common document types:
+<Tab title="Predefined Schema (UI Only)">
+  <Note>
+  **Use the Documind UI** to access built-in templates for common document types like invoices, receipts, forms, etc.
   
-  ```python
-  # Built-in invoice schema
-  schema = get_predefined_schema("invoice")
-  ```
+  Navigate to: **Dashboard → Schemas → Templates**
+  </Note>
   
   ✓ Fastest setup  
   ✓ Proven accuracy  
-  ✗ Limited customization
+  ✗ Not available via API (use UI or define custom schema)
 </Tab>
 
 <Tab title="Custom Schema">
@@ -94,19 +103,48 @@ Choose one of three approaches:
 </Tab>
 
 <Tab title="Generated Schema">
-  Auto-generate from a sample document:
+  Auto-generate schema from a sample document or description:
   
+  **Option 1: Generate from Sample Document** (Recommended)
   ```python
-  # Upload sample
-  sample_id = upload_documents(["sample_policy.pdf"])[0]
+  import requests
   
-  # Generate schema
-  response = generate_schema(sample_id)
-  schema = response["schema"]
+  # Upload sample document
+  with open("sample_policy.pdf", "rb") as f:
+      response = requests.post(
+          "https://api.documind.com/api/v1/upload",
+          headers={"X-API-Key": "your_api_key"},
+          files={"files": f}
+      )
+  sample_id = response.json()[0]
+  
+  # Generate schema from sample
+  response = requests.post(
+      f"https://api.documind.com/api/v1/schema/{sample_id}",
+      headers={"X-API-Key": "your_api_key"}
+  )
+  schema = response.json()["schema"]
   ```
   
+  **Option 2: Generate from Description**
+  ```python
+  response = requests.post(
+      "https://api.documind.com/api/v1/schema/generate-dynamic-schema/",
+      headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
+      json={
+          "schema_name": "insurance_policy",
+          "schema_description": "Extract policy number, coverage amount, policyholder name, and effective dates"
+      }
+  )
+  schema = response.json()
+  ```
+  
+  <Note>
+  Both methods are available in the **UI** (Dashboard → Schemas → Generate) and via **API**
+  </Note>
+  
   ✓ Quick start  
-  ✓ Learns from your docs  
+  ✓ AI-generated from your documents  
   ✗ May need refinement
 </Tab>
 </Tabs>
@@ -134,12 +172,18 @@ Start
 ### Basic Extraction Example
 
 ```python
-result = extract_data(
-    document_id=document_id,
-    schema=schema,
-    model="openai-gpt-4.1",  # or "google-gemini-2.0-flash"
-    prompt="Extract all invoice fields accurately"
+import requests
+
+response = requests.post(
+    f"https://api.documind.com/api/v1/extract/{document_id}",
+    headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
+    json={
+        "schema": schema,
+        "model": "openai-gpt-4.1",  # or "google-gemini-2.0-flash"
+        "prompt": "Extract all invoice fields accurately"
+    }
 )
+result = response.json()
 
 # No confidence scores, no review flagging
 if result["needs_review"]:  # Always False for Basic mode
@@ -151,13 +195,19 @@ else:
 ### Advanced Extraction Example
 
 ```python
-result = extract_data(
-    document_id=document_id,
-    schema=schema,
-    # Advanced mode - no model or extraction_mode
-    review_threshold=85,
-    prompt="Extract invoice with high accuracy"
+import requests
+
+response = requests.post(
+    f"https://api.documind.com/api/v1/extract/{document_id}",
+    headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
+    json={
+        "schema": schema,
+        # Advanced mode - no model or extraction_mode specified
+        "review_threshold": 85,
+        "prompt": "Extract invoice with high accuracy"
+    }
 )
+result = response.json()
 
 # Includes confidence scores
 if result["needs_review"]:
@@ -188,18 +238,22 @@ Only triggered when `needs_review = true`:
 </Step>
 
 <Step title="Notify Review Team">
-  Alert human reviewers through your preferred channel:
+  <Note>
+  **Human review happens in the Documind UI**. Direct your review team to:
   
+  **Dashboard → Review Queue**
+  
+  They can see all pending reviews, view extraction confidence scores, and correct/approve results.
+  </Note>
+  
+  Optionally, send notifications via your own system:
   ```python
-  # Email notification
+  # Your custom notification logic
   send_email(
       to="reviewers@company.com",
       subject=f"Review Needed: {filename}",
-      body=f"Document {document_id} has {len(flagged_fields)} fields needing review"
+      body=f"Document {document_id} needs review at https://app.documind.com/review"
   )
-  
-  # Or webhook
-  notify_slack(f"New review: {document_id}")
   ```
 </Step>
 
@@ -207,12 +261,28 @@ Only triggered when `needs_review = true`:
   Implement polling to detect when `is_reviewed = true`:
   
   ```python
-  reviewed_data = poll_for_review(
-      document_id=document_id,
-      poll_interval=10,    # Check every 10 seconds
-      timeout=600          # Give up after 10 minutes
-  )
+  import requests
+  import time
   
+  def poll_for_review(document_id, poll_interval=10, timeout=600):
+      start_time = time.time()
+      
+      while (time.time() - start_time) < timeout:
+          response = requests.get(
+              "https://api.documind.com/api/v1/data/extractions",
+              headers={"X-API-Key": "your_api_key"},
+              params={"document_id": document_id, "limit": 1}
+          )
+          data = response.json()
+          
+          if data["items"] and data["items"][0]["is_reviewed"]:
+              return data["items"][0]["reviewed_results"]
+          
+          time.sleep(poll_interval)
+      
+      return None
+  
+  reviewed_data = poll_for_review(document_id)
   if reviewed_data:
       process_data(reviewed_data)
   else:
@@ -226,7 +296,14 @@ Only triggered when `needs_review = true`:
   Once `is_reviewed = true`, use `reviewed_results` instead of `results`:
   
   ```python
-  extraction = get_extraction(document_id)
+  import requests
+  
+  response = requests.get(
+      "https://api.documind.com/api/v1/data/extractions",
+      headers={"X-API-Key": "your_api_key"},
+      params={"document_id": document_id, "limit": 1}
+  )
+  extraction = response.json()["items"][0]
   
   if extraction["is_reviewed"]:
       # Use human-corrected data
@@ -266,7 +343,7 @@ def process_invoice_data(data):
 
 ## Complete Example
 
-Here's a full workflow implementation:
+Here's a full workflow implementation with real API calls:
 
 ```python
 import requests
@@ -274,7 +351,7 @@ import time
 from typing import Dict, Optional
 
 class DocumindWorkflow:
-    """Complete extraction workflow manager."""
+    """Complete extraction workflow manager using Documind API."""
     
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -298,38 +375,8 @@ class DocumindWorkflow:
         Returns:
             Final extracted data (original or reviewed)
         """
-        # Phase 1: Upload
+        # Phase 1: Upload via API
         print(f"📤 Uploading {file_path}...")
-        doc_id = self._upload(file_path)
-        print(f"✓ Uploaded: {doc_id}")
-        
-        # Phase 2 & 3: Extract
-        print(f"🔍 Extracting data ({mode} mode)...")
-        result = self._extract(doc_id, schema, mode)
-        print(f"✓ Extraction complete")
-        
-        # Phase 4: Handle review if needed
-        if result["needs_review"]:
-            print(f"⚠️  Document needs review")
-            flagged = self._count_flagged_fields(result["needs_review_metadata"])
-            print(f"   {flagged} field(s) flagged")
-            
-            # Poll for review
-            print(f"⏳ Waiting for human review...")
-            reviewed = self._poll_review(doc_id, timeout=600)
-            
-            if reviewed:
-                print(f"✓ Review completed")
-                return reviewed
-            else:
-                print(f"❌ Review timeout")
-                raise TimeoutError("Review not completed in time")
-        else:
-            print(f"✓ No review needed")
-            return result["results"]
-    
-    def _upload(self, file_path: str) -> str:
-        """Upload document and return ID."""
         with open(file_path, "rb") as f:
             response = requests.post(
                 f"{self.base_url}/upload",
@@ -337,10 +384,11 @@ class DocumindWorkflow:
                 files={"files": f}
             )
         response.raise_for_status()
-        return response.json()[0]
-    
-    def _extract(self, doc_id: str, schema: Dict, mode: str) -> Dict:
-        """Extract data from document."""
+        doc_id = response.json()[0]
+        print(f"✓ Uploaded: {doc_id}")
+        
+        # Phase 2 & 3: Extract via API
+        print(f"🔍 Extracting data ({mode} mode)...")
         config = {"schema": schema, "prompt": "Extract all data accurately"}
         
         if mode == "basic":
@@ -348,7 +396,7 @@ class DocumindWorkflow:
         elif mode == "vlm":
             config["extraction_mode"] = "vlm"
             config["review_threshold"] = 80
-        else:  # advanced - no model or extraction_mode
+        else:  # advanced
             config["review_threshold"] = 85
         
         response = requests.post(
@@ -357,48 +405,35 @@ class DocumindWorkflow:
             json=config
         )
         response.raise_for_status()
-        return response.json()
-    
-    def _poll_review(
-        self,
-        doc_id: str,
-        timeout: int = 600,
-        poll_interval: int = 10
-    ) -> Optional[Dict]:
-        """Poll until review is complete."""
-        start = time.time()
+        result = response.json()
+        print(f"✓ Extraction complete")
         
-        while (time.time() - start) < timeout:
-            response = requests.get(
-                f"{self.base_url}/data/extractions",
-                headers=self.headers,
-                params={"document_id": doc_id, "limit": 1}
-            )
+        # Phase 4: Handle review if needed
+        if result["needs_review"]:
+            print(f"⚠️  Document needs review - direct team to UI: https://app.documind.com/review")
             
-            data = response.json()
-            if data["items"] and data["items"][0]["is_reviewed"]:
-                return data["items"][0]["reviewed_results"]
+            # Poll for review completion
+            print(f"⏳ Waiting for human review...")
+            start = time.time()
             
-            time.sleep(poll_interval)
-        
-        return None
-    
-    def _count_flagged_fields(self, metadata: Dict) -> int:
-        """Count fields flagged for review."""
-        count = 0
-        flags = metadata.get("review_flags", {})
-        
-        def count_recursive(obj):
-            nonlocal count
-            if isinstance(obj, bool):
-                if obj:
-                    count += 1
-            elif isinstance(obj, dict):
-                for v in obj.values():
-                    count_recursive(v)
-        
-        count_recursive(flags)
-        return count
+            while (time.time() - start) < 600:  # 10 min timeout
+                response = requests.get(
+                    f"{self.base_url}/data/extractions",
+                    headers=self.headers,
+                    params={"document_id": doc_id, "limit": 1}
+                )
+                data = response.json()
+                
+                if data["items"] and data["items"][0]["is_reviewed"]:
+                    print(f"✓ Review completed")
+                    return data["items"][0]["reviewed_results"]
+                
+                time.sleep(10)
+            
+            raise TimeoutError("Review not completed in time")
+        else:
+            print(f"✓ No review needed")
+            return result["results"]
 
 # Usage
 workflow = DocumindWorkflow(api_key="your_api_key")
@@ -420,7 +455,7 @@ try:
     )
     
     print(f"✓ Final data: {data}")
-    process_invoice(data)
+    # Process your data here
     
 except TimeoutError:
     print("Review took too long, escalating...")

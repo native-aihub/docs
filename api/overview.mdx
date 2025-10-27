@@ -107,9 +107,21 @@ for doc_id in doc_ids:
     
     # 3. Check if needs review
     if result['needs_review']:
-        # Wait for human review, then poll
-        reviewed_data = wait_for_review(doc_id)
-        process_invoice(reviewed_data)
+        # Direct team to UI for review, then poll for completion
+        print(f"⚠️ Review needed - direct team to: https://app.documind.com/review")
+        
+        # Poll until reviewed
+        while True:
+            ext_response = requests.get(
+                "https://api.documind.com/api/v1/data/extractions",
+                headers=headers,
+                params={"document_id": doc_id, "limit": 1}
+            )
+            extraction = ext_response.json()["items"][0]
+            if extraction["is_reviewed"]:
+                process_invoice(extraction["reviewed_results"])
+                break
+            time.sleep(10)
     else:
         process_invoice(result['results'])
 ```

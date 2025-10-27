@@ -180,10 +180,27 @@ class FormProcessor:
     def process_form(self, file_path: str) -> dict:
         """Process form with validation"""
         # Upload
-        document_id = self.upload_document(file_path)
+        with open(file_path, "rb") as f:
+            response = requests.post(
+                f"{self.base_url}/upload",
+                headers=self.headers,
+                files={"files": f}
+            )
+        response.raise_for_status()
+        document_id = response.json()[0]
         
         # Extract using Advanced mode for better accuracy on forms
-        result = self.extract_form(document_id)
+        response = requests.post(
+            f"{self.base_url}/extract/{document_id}",
+            headers={**self.headers, "Content-Type": "application/json"},
+            json={
+                "schema": self.schema,
+                "review_threshold": 85,
+                "prompt": "Extract all form fields accurately, including checkboxes as boolean values"
+            }
+        )
+        response.raise_for_status()
+        result = response.json()
         
         # Normalize checkbox values
         data = normalize_checkbox_values(result["results"])

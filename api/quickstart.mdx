@@ -63,18 +63,19 @@ This guide walks through a complete extraction workflow: upload → extract → 
   ```
   </CodeGroup>
   
-  <ResponseExample>
-  ```json Success Response
+  **Response:**
+  ```json
   [
     "550e8400-e29b-41d4-a716-446655440000"
   ]
   ```
-  </ResponseExample>
 </Step>
 
 <Step title="Define Extraction Schema">
-  Create a JSON schema defining what data to extract.
+  Create or generate a JSON schema defining what data to extract.
   
+  <Tabs>
+  <Tab title="Manual Schema">
   ```json Invoice Schema
   {
     "named_entities": {
@@ -123,6 +124,34 @@ This guide walks through a complete extraction workflow: upload → extract → 
     "required": ["invoice_number", "total_amount"]
   }
   ```
+  </Tab>
+  
+  <Tab title="Generate from Sample">
+  ```python
+  import requests
+  
+  # Upload a sample invoice
+  with open("sample_invoice.pdf", "rb") as f:
+      response = requests.post(
+          "https://api.documind.com/api/v1/upload",
+          headers={"X-API-Key": "your_api_key"},
+          files={"files": f}
+      )
+  sample_id = response.json()[0]
+  
+  # Generate schema from the sample
+  response = requests.post(
+      f"https://api.documind.com/api/v1/schema/{sample_id}",
+      headers={"X-API-Key": "your_api_key"}
+  )
+  schema = response.json()["schema"]
+  ```
+  
+  <Info>
+  Also available in UI: **Dashboard → Schemas → Generate from Sample**
+  </Info>
+  </Tab>
+  </Tabs>
   
   <Tip>
   Mark critical fields as `required` to enable automatic review flagging if confidence is low.
@@ -200,8 +229,8 @@ This guide walks through a complete extraction workflow: upload → extract → 
   ```
   </CodeGroup>
   
-  <ResponseExample>
-  ```json Success Response
+  **Response:**
+  ```json
   {
     "document_id": "550e8400-e29b-41d4-a716-446655440000",
     "results": {
@@ -228,7 +257,6 @@ This guide walks through a complete extraction workflow: upload → extract → 
     "needs_review_metadata": {}
   }
   ```
-  </ResponseExample>
 </Step>
 
 <Step title="Handle Review Workflow">
@@ -393,17 +421,41 @@ Process multiple documents in parallel:
 
 ```python Python
 import concurrent.futures
+import requests
+import time
+
+API_KEY = "your_api_key_here"
+BASE_URL = "https://api.documind.com/api/v1"
 
 def process_document(file_path):
     # Upload
-    document_id = upload_document(file_path)
+    with open(file_path, "rb") as f:
+        response = requests.post(
+            f"{BASE_URL}/upload",
+            headers={"X-API-Key": API_KEY},
+            files={"files": f}
+        )
+    document_id = response.json()[0]
     
     # Extract
-    result = extract_data(document_id, schema)
+    result = requests.post(
+        f"{BASE_URL}/extract/{document_id}",
+        headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
+        json={"schema": schema, "prompt": "Extract data"}
+    ).json()
     
     # Handle review if needed
     if result["needs_review"]:
-        return wait_for_review(document_id)
+        # Poll for review completion
+        while True:
+            extractions = requests.get(
+                f"{BASE_URL}/data/extractions",
+                headers={"X-API-Key": API_KEY},
+                params={"document_id": document_id, "limit": 1}
+            ).json()
+            if extractions["items"][0]["is_reviewed"]:
+                return extractions["items"][0]["reviewed_results"]
+            time.sleep(10)
     return result["results"]
 
 # Process 10 documents concurrently
@@ -417,7 +469,13 @@ Handle common error scenarios:
 
 ```python Python
 try:
-    result = extract_data(document_id, schema)
+    response = requests.post(
+        f"https://api.documind.com/api/v1/extract/{document_id}",
+        headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
+        json={"schema": schema, "prompt": "Extract data"}
+    )
+    response.raise_for_status()
+    result = response.json()
 except requests.exceptions.HTTPError as e:
     if e.response.status_code == 402:
         print("Insufficient credits - please upgrade")
