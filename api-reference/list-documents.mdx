@@ -1,6 +1,6 @@
 ---
 title: "List Documents"
-description: "List all uploaded documents"
+description: "List documents that have extraction records"
 ---
 
 ## Endpoint
@@ -10,6 +10,8 @@ GET https://api.documind.cloud/api/v1/documents
 ```
 
 ## Response
+
+The backend builds this list from extraction records for the authenticated user. Newly uploaded documents may not appear until an extraction exists for them.
 
 ```json
 [
@@ -34,4 +36,3 @@ response = requests.get(
 
 documents = response.json()
 ```
-

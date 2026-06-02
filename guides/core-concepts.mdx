@@ -9,8 +9,7 @@ description: "Understanding Documind's key concepts and workflows"
 
 A **document** is any file you upload to Documind for processing. Supported formats include:
 - PDF files
-- Microsoft Word documents (.docx)
-- Images (JPEG, PNG, TIFF)
+- Images (JPEG, PNG, TIFF, BMP)
 
 Each uploaded document receives a unique `document_id` that you use for all subsequent operations.
 
@@ -149,9 +148,9 @@ Single-model extraction for simple documents:
 ```json
 {
   "schema": {...},
-  "model": "google-gemini-2.0-flash"  // 2 credits/page
-  // or "openai-gpt-4.1"             // 4 credits/page
-  // or "openai-gpt-4o"              // 6 credits/page
+  "model": "qwen-3-vl"  // 2 credits/page
+  // or "google-gemini-2.5-flash"             // 4 credits/page
+  // or "google-gemini-3-flash"              // 6 credits/page
 }
 ```
 
@@ -345,9 +344,9 @@ Documind uses a credit-based pricing model:
 
 | Extraction Mode | Cost per Page |
 |----------------|---------------|
-| Basic (Gemini 2.0 Flash) | 2 credits |
-| Basic (GPT-4.1) | 4 credits |
-| Basic (GPT-4o) | 6 credits |
+| Basic (`qwen-3-vl`) | 2 credits |
+| Basic (`google-gemini-2.5-flash`) | 4 credits |
+| Basic (`google-gemini-3-flash`) | 6 credits |
 | VLM | 10 credits |
 | Advanced | 15 credits |
 
@@ -394,11 +393,11 @@ curl https://api.documind.cloud/api/v1/upload \
 
 API keys can have different permission scopes:
 
-- `read:extractions` - Read extraction results
-- `write:extractions` - Create and update extractions
-- `read:api_keys` - List API keys
-- `write:api_keys` - Create and manage API keys
-- `read:usage` - View usage and credits
+- `extractions:read` - Read extraction results
+- `extractions:write` - Create and update extractions
+- `api_keys:read` - List API keys
+- `api_keys:write` - Create and manage API keys
+- `usage:read` - View usage and credits
 - `admin` - Full access (admin only)
 
 ### Organization Keys
@@ -440,4 +439,3 @@ See the [Error Handling Guide](/guides/error-handling) for detailed strategies.
   Explore all API endpoints
 </Card>
 </CardGroup>
-

@@ -52,9 +52,9 @@ Documind provides a powerful document extraction API designed for automation dev
 <AccordionGroup>
 <Accordion title="Basic Extraction (2-6 credits/page)">
   Single-model extraction with your choice of:
-  - **GPT-4o** (6 credits) - Most accurate
-  - **GPT-4.1** (4 credits) - Balanced 
-  - **Gemini 2.0 Flash** (2 credits) - Fastest
+  - `google-gemini-3-flash` (6 credits)
+  - `google-gemini-2.5-flash` (4 credits)
+  - `qwen-3-vl` (2 credits)
   
   Best for simple documents where extensive validation isn't required.
 </Accordion>
@@ -93,13 +93,13 @@ headers = {"X-API-Key": API_KEY}
 
 # 1. Upload documents
 files = [("files", open("invoice1.pdf", "rb")), ("files", open("invoice2.pdf", "rb"))]
-response = requests.post("https://api.documind.com/api/v1/upload", headers=headers, files=files)
+response = requests.post("https://api.documind.cloud/api/v1/upload", headers=headers, files=files)
 doc_ids = response.json()
 
 # 2. Extract with schema
 for doc_id in doc_ids:
     response = requests.post(
-        f"https://api.documind.com/api/v1/extract/{doc_id}",
+        f"https://api.documind.cloud/api/v1/extract/{doc_id}",
         headers=headers,
         json={"schema": invoice_schema, "review_threshold": 85}
     )
@@ -108,12 +108,12 @@ for doc_id in doc_ids:
     # 3. Check if needs review
     if result['needs_review']:
         # Direct team to UI for review, then poll for completion
-        print(f"⚠️ Review needed - direct team to: https://app.documind.com/review")
+        print(f"⚠️ Review needed - direct team to: https://app.documind.cloud/review")
         
         # Poll until reviewed
         while True:
             ext_response = requests.get(
-                "https://api.documind.com/api/v1/data/extractions",
+                "https://api.documind.cloud/api/v1/data/extractions",
                 headers=headers,
                 params={"document_id": doc_id, "limit": 1}
             )
@@ -129,7 +129,7 @@ for doc_id in doc_ids:
 ```javascript Node.js
 // Automation pipeline with polling
 const results = await Promise.all(
-  docIds.map(id => extract(id, { schema, model: 'openai-gpt-4.1' }))
+  docIds.map(id => extract(id, { schema, model: 'google-gemini-2.5-flash' }))
 );
 
 // Filter out items needing review
@@ -164,7 +164,7 @@ Never commit API keys to version control. Use environment variables or secure cr
 Check your current credits:
 
 ```bash
-curl https://api.documind.com/api/v1/usage/credits \
+curl https://api.documind.cloud/api/v1/usage/credits \
   -H 'X-API-Key: YOUR_API_KEY'
 ```
 
@@ -187,4 +187,3 @@ curl https://api.documind.com/api/v1/usage/credits \
   Implement review polling for automation pipelines
 </Card>
 </CardGroup>
-

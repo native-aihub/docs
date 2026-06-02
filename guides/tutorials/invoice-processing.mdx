@@ -185,7 +185,7 @@ class InvoiceProcessor:
         self,
         document_id: str,
         mode: str = "basic",
-        model: str = "google-gemini-2.0-flash"
+        model: str = "qwen-3-vl"
     ) -> Dict[str, Any]:
         """Extract invoice data"""
         logger.info(f"Extracting invoice {document_id} in {mode} mode...")
@@ -334,7 +334,7 @@ class InvoiceProcessor {
     return documentId;
   }
 
-  async extractInvoice(documentId, mode = 'basic', model = 'google-gemini-2.0-flash') {
+  async extractInvoice(documentId, mode = 'basic', model = 'qwen-3-vl') {
     console.log(`Extracting invoice ${documentId} in ${mode} mode...`);
     
     const payload = {

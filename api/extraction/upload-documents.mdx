@@ -9,7 +9,7 @@ description: "Upload documents for extraction processing"
 POST /upload
 ```
 
-Upload one or more documents to receive document IDs for extraction. Supports PDF, DOCX, DOC, JPG, and PNG formats.
+Upload one or more documents to receive document IDs for extraction. Upload stores the files; schema generation and extraction perform document conversion later.
 
 ## Authentication
 
@@ -20,14 +20,16 @@ API key for authentication. Your unique API key.
 ## Request Parameters
 
 <ParamField body="files" type="file[]" required>
-One or more document files to upload. Maximum 100 files per request.
+One or more document files to upload.
 
-Supported formats:
+Extraction-compatible formats:
 - `application/pdf` (.pdf)
-- `application/msword` (.doc)
-- `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (.docx)
 - `image/jpeg` (.jpg, .jpeg)
 - `image/png` (.png)
+- `image/tiff` (.tiff)
+- `image/bmp` (.bmp)
+
+Other file types may upload, but schema generation and extraction can fail if the backend cannot convert the file.
 </ParamField>
 
 ## Response
@@ -40,7 +42,7 @@ Array of UUID v4 document identifiers. Use these IDs for extraction requests.
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.documind.com/api/v1/upload \
+curl -X POST https://api.documind.cloud/api/v1/upload \
   -H 'X-API-Key: YOUR_API_KEY' \
   -F 'files=@invoice1.pdf' \
   -F 'files=@invoice2.pdf' \
@@ -57,7 +59,7 @@ headers = {"X-API-Key": API_KEY}
 with open("invoice.pdf", "rb") as f:
     files = {"files": f}
     response = requests.post(
-        "https://api.documind.com/api/v1/upload",
+        "https://api.documind.cloud/api/v1/upload",
         headers=headers,
         files=files
     )
@@ -73,7 +75,7 @@ files_to_upload = [
 ]
 
 response = requests.post(
-    "https://api.documind.com/api/v1/upload",
+    "https://api.documind.cloud/api/v1/upload",
     headers=headers,
     files=files_to_upload
 )
@@ -94,7 +96,7 @@ const FormData = require('form-data');
 const formData = new FormData();
 formData.append('files', fs.createReadStream('invoice.pdf'));
 
-const response = await fetch('https://api.documind.com/api/v1/upload', {
+const response = await fetch('https://api.documind.cloud/api/v1/upload', {
   method: 'POST',
   headers: {
     'X-API-Key': process.env.API_KEY,
@@ -112,7 +114,7 @@ multiForm.append('files', fs.createReadStream('doc1.pdf'));
 multiForm.append('files', fs.createReadStream('doc2.pdf'));
 multiForm.append('files', fs.createReadStream('doc3.jpg'));
 
-const multiResponse = await fetch('https://api.documind.com/api/v1/upload', {
+const multiResponse = await fetch('https://api.documind.cloud/api/v1/upload', {
   method: 'POST',
   headers: {
     'X-API-Key': process.env.API_KEY,
@@ -145,58 +147,34 @@ console.log(`Uploaded ${multiDocIds.length} documents`);
 ## File Size & Limits
 
 <Note>
-- **Maximum file size**: 50 MB per file
-- **Maximum files per request**: 100 files
-- **Total request size**: 500 MB
-
-For larger batches, split into multiple upload requests.
+The backend does not enforce a documented per-file or per-request count limit in application code. Infrastructure may still reject oversized requests before they reach the backend. For larger batches, split files into multiple upload requests and retry failed requests.
 </Note>
 
 ## Storage Duration
 
-Uploaded documents are stored for **30 days** after upload. After this period, documents are automatically deleted. Extraction results remain accessible indefinitely.
-
-<Tip>
-Download original documents via `/documents/{document_id}/download` if you need to archive them beyond 30 days.
-</Tip>
+No public retention SLA is exposed by the backend. Keep your own source documents if you need long-term archival.
 
 ## Processing Time
 
-Document upload is typically completed within:
-- **Single page PDF**: < 1 second
-- **10-page PDF**: 2-3 seconds  
-- **Large image (10MB)**: 3-5 seconds
-
-The API returns document IDs immediately after upload, before any processing begins.
+The API returns document IDs after the files are stored. OCR, layout analysis, and model processing happen later during schema generation or extraction; the backend does not expose a public upload timing SLA.
 
 ## Error Responses
 
 ### 400 Bad Request
 
-Invalid file format or size:
+Malformed multipart request:
 
 ```json
 {
-  "detail": "File format not supported. Supported formats: PDF, DOCX, DOC, JPG, PNG"
+  "detail": "There was an error parsing the body"
 }
 ```
 
 **Common causes**:
-- Unsupported file format (e.g., .txt, .xls)
-- Corrupt or invalid file
-- File size exceeds 50 MB
+- Missing `files` form field
+- Invalid multipart body
+- Corrupt upload stream
 
-### 402 Payment Required
-
-Insufficient credits:
-
-```json
-{
-  "detail": "Insufficient credits. Please upgrade your plan or wait for your daily credits to refresh."
-}
-```
-
-**Solution**: Check your credit balance via `/usage/credits` and upgrade if needed.
 
 ### 413 Payload Too Large
 
@@ -204,7 +182,7 @@ Request exceeds size limits:
 
 ```json
 {
-  "detail": "Request payload too large. Maximum total size: 500MB"
+  "detail": "Request Entity Too Large"
 }
 ```
 
@@ -259,22 +237,17 @@ Server-side processing error:
 </Accordion>
 
 <Accordion title="Validate Files Before Upload">
-  Check file format and size before uploading:
+  Check file format before uploading:
   
   ```python
   import os
   
-  MAX_SIZE = 50 * 1024 * 1024  # 50 MB
-  SUPPORTED = {'.pdf', '.docx', '.doc', '.jpg', '.jpeg', '.png'}
+  SUPPORTED = {'.pdf', '.jpg', '.jpeg', '.png', '.tiff', '.bmp'}
   
   def validate_file(file_path):
       ext = os.path.splitext(file_path)[1].lower()
-      size = os.path.getsize(file_path)
-      
       if ext not in SUPPORTED:
           raise ValueError(f"Unsupported format: {ext}")
-      if size > MAX_SIZE:
-          raise ValueError(f"File too large: {size/1024/1024:.1f}MB")
       
       return True
   
@@ -309,7 +282,7 @@ Server-side processing error:
 After uploading documents, you can:
 
 <CardGroup cols={2}>
-<Card title="Generate Schema" icon="table" href="/api/extraction/generate-schema">
+<Card title="Generate Schema" icon="table" href="/api-reference/generate-schema">
   Auto-generate extraction schema from a sample document
 </Card>
 
@@ -317,8 +290,7 @@ After uploading documents, you can:
   Extract structured data using a schema
 </Card>
 
-<Card title="List Documents" icon="list" href="/api/documents/manage-documents">
-  View and manage uploaded documents
+<Card title="List Documents" icon="list" href="/api-reference/list-documents">
+  View documents with extraction records
 </Card>
 </CardGroup>
-

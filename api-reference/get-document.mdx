@@ -1,30 +1,13 @@
 ---
 title: "Get Document"
-description: "Get document details and associated extractions"
+description: "Document detail endpoint is not publicly available"
 ---
 
-## Endpoint
+## Status
 
-```
-GET https://api.documind.cloud/api/v1/documents/{document_id}
-```
+This endpoint is not documented as a public API because the current backend document-detail handler is not implemented end to end.
 
-## Path Parameters
+Use these supported endpoints instead:
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `document_id` | string (UUID) | Yes | ID of the document |
-
-## Response
-
-```json
-{
-  "document_id": "doc-id",
-  "filename": "invoice.pdf",
-  "upload_date": "2024-01-15T10:00:00Z",
-  "file_size": 125000,
-  "num_pages": 3,
-  "extractions": [...]
-}
-```
-
+- `GET /api/v1/documents` to list documents that have extraction records
+- `GET /api/v1/data/extractions?document_id={document_id}` to inspect extraction results for a document

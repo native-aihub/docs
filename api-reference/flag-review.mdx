@@ -6,7 +6,7 @@ description: "Manually flag an extraction for review"
 ## Endpoint
 
 ```
-POST https://api.documind.cloud/api/v1/data/extractions/{extraction_id}/flag
+PUT https://api.documind.cloud/api/v1/data/extractions/{extraction_id}/flag-for-review
 ```
 
 ## Path Parameters
@@ -27,8 +27,6 @@ POST https://api.documind.cloud/api/v1/data/extractions/{extraction_id}/flag
 
 ```json
 {
-  "status": "success",
-  "message": "Extraction flagged for review"
+  "status": "success"
 }
 ```
-

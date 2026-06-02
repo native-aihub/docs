@@ -11,7 +11,7 @@ POST https://api.documind.cloud/api/v1/extract/{document_id}
 
 ## Authentication
 
-Requires `write:extractions` scope.
+Requires `extractions:write` scope.
 
 ## Path Parameters
 
@@ -23,17 +23,22 @@ Requires `write:extractions` scope.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `schema` | object | Yes | JSON Schema defining fields to extract |
+| `schema` | object | No | JSON Schema defining fields to extract. Strongly recommended for structured output |
 | `prompt` | string | No | Custom extraction instructions |
-| `model` | string | No | Model for Basic mode: `google-gemini-2.0-flash`, `openai-gpt-4.1`, or `openai-gpt-4o` |
+| `model` | string | No | Model for Basic mode: `qwen-3-vl`, `google-gemini-2.5-flash`, or `google-gemini-3-flash` |
 | `extraction_mode` | string | No | Set to `vlm` for VLM mode |
 | `review_threshold` | number | No | Confidence threshold for review (0-100, default: 80) |
+| `include_citations` | boolean | No | Enable citation/source matching. Only available for Advanced mode |
+| `agentic_ocr` | boolean | No | Use the higher OCR tier for Advanced mode parsing |
+| `confidence_instruction` | string | No | Additional instructions for confidence scoring in Advanced mode |
 
 <Note>
 **Extraction Modes:**
 - **Basic**: Set `model` parameter (2-6 credits/page)
 - **VLM**: Set `extraction_mode` to `vlm` (10 credits/page)
 - **Advanced**: Don't set `model` or `extraction_mode` (15 credits/page with confidence scoring)
+
+Citation matching is only available in Advanced mode. Do not set `model` or `extraction_mode` when `include_citations` is `true`.
 </Note>
 
 ## Response
@@ -82,7 +87,7 @@ response = requests.post(
     headers={"X-API-Key": API_KEY},
     json={
         "schema": schema,
-        "model": "google-gemini-2.0-flash"
+        "model": "qwen-3-vl"
     }
 )
 
@@ -146,4 +151,3 @@ if (response.data.needs_review) {
   Query extraction results
 </Card>
 </CardGroup>
-

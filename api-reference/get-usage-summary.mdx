@@ -1,0 +1,38 @@
+---
+title: "Get Usage Summary"
+description: "Get summarized usage metrics for the authenticated user"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/usage/summary
+```
+
+## Authentication
+
+Requires `usage:read` scope.
+
+## Response
+
+```json
+{
+  "user_id": "user-id",
+  "total_extractions": 450,
+  "total_tokens": 250000,
+  "total_api_calls": 1250,
+  "current_storage_bytes": 104857600,
+  "quota_exceeded_count": 0
+}
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/usage/summary",
+    headers={"X-API-Key": API_KEY}
+)
+
+summary = response.json()
+```

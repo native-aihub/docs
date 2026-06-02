@@ -11,7 +11,7 @@ POST https://api.documind.cloud/api/v1/upload
 
 ## Authentication
 
-Requires `write:extractions` scope.
+Requires `extractions:write` scope.
 
 ## Request
 
@@ -29,16 +29,18 @@ Form data with file uploads:
 |-------|------|----------|-------------|
 | `files` | file | Yes | One or more files to upload (can repeat for multiple files) |
 
-### Supported File Types
+### Extraction-Compatible File Types
+
+The upload endpoint stores files and returns document IDs. Schema generation and extraction currently process:
 
 - **PDF**: `.pdf`
-- **Word**: `.docx`
-- **Images**: `.jpg`, `.jpeg`, `.png`, `.tiff`
+- **Images**: `.jpg`, `.jpeg`, `.png`, `.tiff`, `.bmp`
 
-### File Size Limits
+Other file types may upload successfully, but schema generation and extraction can fail if the backend cannot convert the file.
 
-- Maximum file size: 50 MB per file
-- Maximum files per request: 10 files
+### Request Limits
+
+The backend does not enforce a documented per-file or per-request count limit in application code. Infrastructure may still reject oversized requests. For reliability, keep batches small and retry failed upload requests.
 
 ## Response
 
@@ -159,11 +161,11 @@ curl -X POST https://api.documind.cloud/api/v1/upload \
 
 ### 400 Bad Request
 
-Invalid file type or size:
+Malformed multipart request:
 
 ```json
 {
-  "detail": "Unsupported file type. Supported types: pdf, docx, jpg, jpeg, png, tiff"
+  "detail": "There was an error parsing the body"
 }
 ```
 
@@ -179,11 +181,11 @@ Missing or invalid API key:
 
 ### 413 Payload Too Large
 
-File exceeds size limit:
+Infrastructure may reject oversized requests before they reach the backend:
 
 ```json
 {
-  "detail": "File size exceeds 50 MB limit"
+  "detail": "Request Entity Too Large"
 }
 ```
 
@@ -213,7 +215,7 @@ Server error during upload:
 </Accordion>
 
 <Accordion title="Store Document IDs">
-  Save the returned document IDs for future extraction requests. Document IDs are permanent and can be used repeatedly.
+  Save the returned document IDs; they are required for schema generation and extraction requests.
 </Accordion>
 </AccordionGroup>
 
@@ -223,10 +225,8 @@ Upload endpoint is subject to rate limits based on your subscription tier. Conta
 
 ## Notes
 
-- Uploaded documents are stored securely and retained for 90 days
-- Document IDs are permanent and don't change
-- Multiple uploads of the same file (within 5 minutes) return the same document ID
-- Files are automatically processed for OCR and layout analysis
+- Each upload receives a new document ID
+- Upload stores the file only; OCR/layout processing runs during schema generation or extraction
 
 ## Next Steps
 
@@ -240,11 +240,10 @@ Upload endpoint is subject to rate limits based on your subscription tier. Conta
 </Card>
 
 <Card title="List Documents" icon="list" href="/api-reference/list-documents">
-  View all uploaded documents
+  View documents with extraction records
 </Card>
 
 <Card title="Upload Guide" icon="book" href="/api/extraction/upload-documents">
   Detailed upload workflow guide
 </Card>
 </CardGroup>
-

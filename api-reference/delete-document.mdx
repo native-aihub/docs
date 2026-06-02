@@ -1,36 +1,11 @@
 ---
 title: "Delete Document"
-api: "DELETE /api/v1/documents/{document_id}"
-description: "Delete a document and all its extractions"
+description: "Document deletion endpoint is not publicly available"
 ---
 
-## Endpoint
+## Status
 
-```
-DELETE https://api.documind.cloud/api/v1/documents/{document_id}
-```
+This endpoint is not documented as a public API because the current backend document-deletion handler is not implemented end to end.
 
-## Path Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `document_id` | string (UUID) | Yes | ID of the document |
-
-## Response
-
-```json
-{
-  "status": "success",
-  "message": "Document deleted successfully"
-}
-```
-
-## Example
-
-```python
-response = requests.delete(
-    f"https://api.documind.cloud/api/v1/documents/{document_id}",
-    headers={"X-API-Key": API_KEY}
-)
-```
+Use `GET /api/v1/data/extractions` to retrieve extraction records. Contact support if you need document deletion support.
 

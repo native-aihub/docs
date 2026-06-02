@@ -100,23 +100,30 @@
             "pages": [
               "api-reference/upload",
               "api-reference/extract",
-              "api-reference/generate-schema"
+              "api-reference/batch-extract",
+              "api-reference/generate-schema",
+              "api-reference/generate-dynamic-schema"
             ]
           },
           {
             "group": "Data & Querying",
             "pages": [
               "api-reference/list-extractions",
-              "api-reference/get-extraction",
+              "api-reference/get-extraction"
+            ]
+          },
+          {
+            "group": "Review",
+            "pages": [
+              "api-reference/pending-reviews",
+              "api-reference/update-review",
               "api-reference/flag-review"
             ]
           },
           {
             "group": "Documents",
             "pages": [
-              "api-reference/list-documents",
-              "api-reference/get-document",
-              "api-reference/delete-document"
+              "api-reference/list-documents"
             ]
           },
           {
@@ -124,6 +131,7 @@
             "pages": [
               "api-reference/create-api-key",
               "api-reference/list-api-keys",
+              "api-reference/update-api-key",
               "api-reference/delete-api-key"
             ]
           },
@@ -139,7 +147,9 @@
             "group": "Usage & Credits",
             "pages": [
               "api-reference/get-usage",
-              "api-reference/get-credits"
+              "api-reference/get-credits",
+              "api-reference/get-usage-history",
+              "api-reference/get-usage-summary"
             ]
           }
         ]

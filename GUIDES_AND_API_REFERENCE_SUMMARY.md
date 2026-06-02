@@ -24,29 +24,34 @@ Successfully populated the **Guides** and **API Reference** sections of the Docu
 - **`guides/prompt-design.mdx`** - Crafting effective prompts for better extraction accuracy
 - **`guides/error-handling.mdx`** - Comprehensive error handling, retry strategies, and circuit breakers
 
-### API Reference Section (18 files)
+### API Reference Section (20 navigation pages)
 
 #### Introduction
 - **`api-reference/introduction.mdx`** - API overview, authentication, pagination, and error codes
 
-#### Core Endpoints (3 files)
+#### Core Endpoints (5 files)
 - **`api-reference/upload.mdx`** - Upload documents endpoint with multi-file support
 - **`api-reference/extract.mdx`** - Extract data endpoint with all three modes
+- **`api-reference/batch-extract.mdx`** - Start and inspect asynchronous batch extraction jobs
 - **`api-reference/generate-schema.mdx`** - Auto-generate schemas from documents
+- **`api-reference/generate-dynamic-schema.mdx`** - Generate schemas from a name and description
 
-#### Data & Querying (3 files)
+#### Data & Querying (2 files)
 - **`api-reference/list-extractions.mdx`** - Query and filter extractions
 - **`api-reference/get-extraction.mdx`** - Get specific extraction details
+
+#### Review (3 files)
+- **`api-reference/pending-reviews.mdx`** - List extractions waiting for review
+- **`api-reference/update-review.mdx`** - Submit reviewed results for a document
 - **`api-reference/flag-review.mdx`** - Manually flag extractions for review
 
-#### Documents (3 files)
-- **`api-reference/list-documents.mdx`** - List all uploaded documents
-- **`api-reference/get-document.mdx`** - Get document details
-- **`api-reference/delete-document.mdx`** - Delete documents and extractions
+#### Documents (1 file)
+- **`api-reference/list-documents.mdx`** - List documents that have extraction records
 
-#### API Keys (3 files)
+#### API Keys (4 files)
 - **`api-reference/create-api-key.mdx`** - Create new API keys
 - **`api-reference/list-api-keys.mdx`** - List all API keys
+- **`api-reference/update-api-key.mdx`** - Get or update a single API key
 - **`api-reference/delete-api-key.mdx`** - Revoke API keys
 
 #### User Settings (3 files)
@@ -54,9 +59,11 @@ Successfully populated the **Guides** and **API Reference** sections of the Docu
 - **`api-reference/custom-schemas.mdx`** - Manage custom schemas
 - **`api-reference/custom-prompts.mdx`** - Manage custom prompts
 
-#### Usage & Credits (2 files)
+#### Usage & Credits (4 files)
 - **`api-reference/get-usage.mdx`** - Get current usage metrics
 - **`api-reference/get-credits.mdx`** - Get credit balance
+- **`api-reference/get-usage-history.mdx`** - Get monthly usage history
+- **`api-reference/get-usage-summary.mdx`** - Get usage summary
 
 ## Navigation Structure
 
@@ -89,8 +96,9 @@ Documind Documentation
 │
 └── API Reference (NEW)
     ├── Introduction
-    ├── Core Endpoints (Upload, Extract, Generate Schema)
+    ├── Core Endpoints (Upload, Extract, Batch Extract, Generate Schema, Generate Dynamic Schema)
     ├── Data & Querying
+    ├── Review
     ├── Documents
     ├── API Keys
     ├── User Settings
@@ -185,10 +193,10 @@ Users can follow this learning path:
 
 ## Files Created
 
-**Total: 29 files**
+**Total: 36 files**
 - 10 guide files (introduction, quickstart, concepts, 4 tutorials, 3 advanced guides)
 - 1 updated `docs.json` navigation file
-- 18 API reference files
+- 25 API reference files
 
 **Total: 7 files deleted**
 - Placeholder directories and files removed
@@ -253,4 +261,3 @@ Successfully created comprehensive Guides and API Reference sections that comple
 - **For integrators**: Workflow patterns and automation examples
 
 The documentation follows Mintlify best practices, includes extensive code examples, and provides a clear learning path from introduction to advanced topics.
-

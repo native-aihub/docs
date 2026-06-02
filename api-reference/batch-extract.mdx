@@ -1,0 +1,89 @@
+---
+title: "Batch Extract"
+description: "Start and inspect an asynchronous batch extraction job"
+---
+
+## Start Batch Extraction
+
+```
+POST https://api.documind.cloud/api/v1/batch/extract
+```
+
+Requires `extractions:write` scope.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `document_ids` | string[] | Yes | Uploaded document IDs to extract |
+| `extraction_request` | object | Yes | Same extraction options used by `POST /extract/{document_id}` |
+
+### Response
+
+```json
+{
+  "batch_id": "batch-id",
+  "status": "pending",
+  "items": [
+    {
+      "document_id": "document-id",
+      "extraction_id": "extraction-id",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+## Get Batch Status
+
+```
+GET https://api.documind.cloud/api/v1/batch/{batch_id}
+```
+
+Requires `extractions:read` scope.
+
+### Response
+
+```json
+{
+  "batch_id": "batch-id",
+  "status": "completed",
+  "total": 2,
+  "pending": 0,
+  "completed": 2,
+  "failed": 0,
+  "items": [
+    {
+      "document_id": "document-id",
+      "extraction_id": "extraction-id",
+      "original_filename": "invoice.pdf",
+      "status": "completed",
+      "results": {},
+      "needs_review": false
+    }
+  ]
+}
+```
+
+## Example
+
+```python
+start = requests.post(
+    "https://api.documind.cloud/api/v1/batch/extract",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "document_ids": document_ids,
+        "extraction_request": {
+            "schema": schema,
+            "model": "qwen-3-vl"
+        }
+    }
+)
+
+batch_id = start.json()["batch_id"]
+
+status = requests.get(
+    f"https://api.documind.cloud/api/v1/batch/{batch_id}",
+    headers={"X-API-Key": API_KEY}
+)
+```
