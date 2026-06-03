@@ -38,7 +38,7 @@ Some errors include additional context:
 ```json
 {
   "detail": "Invalid model name: gpt-5",
-  "allowed_values": ["openai-gpt-4o", "openai-gpt-4.1", "google-gemini-2.0-flash"]
+  "allowed_values": ["google-gemini-3-flash", "google-gemini-2.5-flash", "qwen-3-vl"]
 }
 ```
 
@@ -190,7 +190,7 @@ def validate_schema(schema):
 
 ```json
 {
-  "detail": "Invalid model name: gpt-5. Allowed values: ['openai-gpt-4o', 'openai-gpt-4.1', 'google-gemini-2.0-flash']"
+  "detail": "Invalid model name: gpt-5. Allowed values: ['google-gemini-3-flash', 'google-gemini-2.5-flash', 'qwen-3-vl']"
 }
 ```
 
@@ -198,11 +198,11 @@ def validate_schema(schema):
 
 ```python
 class ExtractionMode:
-    GEMINI_FLASH = "google-gemini-2.0-flash"  # 2 credits/page
-    GPT_4_1 = "openai-gpt-4.1"                # 4 credits/page
-    GPT_4O = "openai-gpt-4o"                  # 6 credits/page
-    VLM = "vlm"                               # 10 credits/page
-    ADVANCED = None                            # 15 credits/page
+    QWEN_3_VL = "qwen-3-vl"  # 2 credits/page
+    GEMINI_2_5_FLASH = "google-gemini-2.5-flash"  # 4 credits/page
+    GEMINI_3_FLASH = "google-gemini-3-flash"  # 6 credits/page
+    VLM = "vlm"  # 10 credits/page
+    ADVANCED = None  # 15 credits/page
 
 # Use constants
 response = requests.post(
@@ -487,7 +487,7 @@ def validate_extraction_request(document_id, schema, model=None):
         errors.append("Schema must have 'type' field")
     
     # Validate model if provided
-    valid_models = ["openai-gpt-4o", "openai-gpt-4.1", "google-gemini-2.0-flash"]
+    valid_models = ["google-gemini-3-flash", "google-gemini-2.5-flash", "qwen-3-vl"]
     if model and model not in valid_models:
         errors.append(f"Invalid model: {model}. Must be one of {valid_models}")
     
@@ -661,8 +661,8 @@ class DocumindClient:
 ## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Performance Optimization" icon="gauge-high" href="/guides/performance-optimization">
-  Optimize your integration for speed and performance
+<Card title="Automation Pipeline" icon="diagram-project" href="/api/patterns/automation-pipeline">
+  Build resilient document automation workflows
 </Card>
 
 <Card title="API Reference" icon="code" href="/api-reference/introduction">
@@ -677,4 +677,3 @@ class DocumindClient:
   Understand the extraction workflow
 </Card>
 </CardGroup>
-

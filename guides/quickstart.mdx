@@ -11,7 +11,7 @@ This guide will walk you through extracting data from a document using Documind 
 
 - A Documind account (sign up at [app.documind.cloud](https://app.documind.cloud))
 - An API key (create one in the dashboard)
-- A document to process (PDF, DOCX, or image)
+- A document to process (PDF or image: JPG, JPEG, PNG, TIFF, or BMP)
 
 ## Step 1: Get Your API Key
 
@@ -135,7 +135,7 @@ response = requests.post(
     headers=headers,
     json={
         "schema": schema,
-        "model": "google-gemini-2.0-flash",  # Basic mode: 2 credits/page
+        "model": "qwen-3-vl",  # Basic mode: 2 credits/page
         "prompt": "Extract invoice information accurately"
     }
 )
@@ -161,7 +161,7 @@ const response = await axios.post(
   `https://api.documind.cloud/api/v1/extract/${documentId}`,
   {
     schema: schema,
-    model: 'google-gemini-2.0-flash', // Basic mode: 2 credits/page
+    model: 'qwen-3-vl', // Basic mode: 2 credits/page
     prompt: 'Extract invoice information accurately'
   },
   {
@@ -185,7 +185,7 @@ curl -X POST https://api.documind.cloud/api/v1/extract/{document_id} \
         "total_amount": {"type": "number", "description": "Total amount"}
       }
     },
-    "model": "google-gemini-2.0-flash"
+    "model": "qwen-3-vl"
   }'
 ```
 </CodeGroup>
@@ -271,7 +271,7 @@ schema = {
 extract_response = requests.post(
     f"{BASE_URL}/extract/{document_id}",
     headers=headers,
-    json={"schema": schema, "model": "google-gemini-2.0-flash"}
+    json={"schema": schema, "model": "qwen-3-vl"}
 )
 
 result = extract_response.json()

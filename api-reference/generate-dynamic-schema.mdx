@@ -1,0 +1,50 @@
+---
+title: "Generate Dynamic Schema"
+description: "Generate an extraction schema from a name and description"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/generate-dynamic-schema/
+```
+
+## Authentication
+
+Requires a valid API key.
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `schema_name` | string | Yes | Short name for the schema |
+| `schema_description` | string | Yes | Natural-language description of fields to extract |
+
+## Response
+
+```json
+{
+  "named_entities": {
+    "invoice_number": {
+      "type": "string",
+      "description": "Invoice identifier"
+    }
+  },
+  "required": ["invoice_number"]
+}
+```
+
+## Example
+
+```python
+response = requests.post(
+    "https://api.documind.cloud/api/v1/generate-dynamic-schema/",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "schema_name": "invoice",
+        "schema_description": "Extract invoice number, vendor, issue date, and total amount"
+    }
+)
+
+schema = response.json()
+```

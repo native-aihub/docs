@@ -151,7 +151,7 @@ import requests
 def process_extraction(document_id, schema, api_key):
     # Extract with Advanced mode
     response = requests.post(
-        f"https://api.documind.com/api/v1/extract/{document_id}",
+        f"https://api.documind.cloud/api/v1/extract/{document_id}",
         headers={"X-API-Key": api_key, "Content-Type": "application/json"},
         json={
             "schema": schema,
@@ -164,7 +164,7 @@ def process_extraction(document_id, schema, api_key):
     
     if result["needs_review"]:
         # Option 1: Wait for review (polling) - direct team to UI
-        print("⚠️ Review needed - direct team to: https://app.documind.com/review")
+        print("⚠️ Review needed - direct team to: https://app.documind.cloud/review")
         reviewed_data = wait_for_review(document_id, api_key)
         return reviewed_data
     else:
@@ -189,7 +189,7 @@ def process_extraction(document_id, schema, api_key):
       
       while (time.time() - start) < timeout:
           response = requests.get(
-              "https://api.documind.com/api/v1/data/extractions",
+              "https://api.documind.cloud/api/v1/data/extractions",
               headers={"X-API-Key": api_key},
               params={"document_id": document_id, "limit": 1}
           )
@@ -237,14 +237,14 @@ def process_extraction(document_id, schema, api_key):
   # Morning: Extract documents
   for doc in daily_documents:
       requests.post(
-          f"https://api.documind.com/api/v1/extract/{doc.id}",
+          f"https://api.documind.cloud/api/v1/extract/{doc.id}",
           headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
           json={"schema": schema, "prompt": "Extract data"}
       )
   
   # Afternoon: Process reviewed documents
   response = requests.get(
-      "https://api.documind.com/api/v1/data/extractions",
+      "https://api.documind.cloud/api/v1/data/extractions",
       headers={"X-API-Key": API_KEY},
       params={
           "is_reviewed": True,
@@ -436,11 +436,11 @@ Aim for a 15-25% review rate for most business documents. If higher, consider lo
   Implement robust polling for automation workflows
 </Card>
 
-<Card title="Update Extraction" icon="pen" href="/api/review/updating-extractions">
-  Manually update extraction results
+<Card title="Update Review" icon="pen" href="/api-reference/update-review">
+  Submit reviewed extraction results
 </Card>
 
-<Card title="List Pending Reviews" icon="list" href="/api/data/list-extractions">
+<Card title="List Pending Reviews" icon="list" href="/api-reference/pending-reviews">
   Query extractions needing review
 </Card>
 </CardGroup>

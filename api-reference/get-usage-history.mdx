@@ -1,0 +1,55 @@
+---
+title: "Get Usage History"
+description: "Get monthly usage history for the authenticated user"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/usage/history
+```
+
+## Authentication
+
+Requires `usage:read` scope.
+
+## Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `months` | integer | Number of months to return, from 1 to 12. Default: 3 |
+
+## Response
+
+```json
+[
+  {
+    "period_start": "2026-06-01T00:00:00+00:00",
+    "period_end": "2026-07-01T00:00:00+00:00",
+    "tier_name": "Professional",
+    "usage": {
+      "api_calls_count": 1250,
+      "extractions_count": 450,
+      "tokens_used": 250000,
+      "storage_bytes": 104857600
+    },
+    "limits": {
+      "api_calls_limit": 10000,
+      "extractions_limit": 5000,
+      "tokens_limit": 1000000,
+      "storage_bytes_limit": 1073741824
+    },
+    "quota_exceeded": false
+  }
+]
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/usage/history",
+    headers={"X-API-Key": API_KEY},
+    params={"months": 6}
+)
+```

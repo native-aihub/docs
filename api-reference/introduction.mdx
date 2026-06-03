@@ -33,7 +33,7 @@ All API requests use JSON format:
 curl https://api.documind.cloud/api/v1/extract/{document_id} \
   -H "X-API-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"schema": {...}, "model": "google-gemini-2.0-flash"}'
+  -d '{"schema": {...}, "model": "qwen-3-vl"}'
 ```
 
 ## Response Format
@@ -114,9 +114,9 @@ List endpoints support sorting:
 GET /api/v1/data/extractions?sort_by=created_at&sort_order=desc
 ```
 
-## Idempotency
+## Upload Behavior
 
-Upload operations are idempotent within a short time window. If you upload the same file multiple times within 5 minutes, you'll receive the same document ID.
+Each upload creates document IDs for the files in that request. The backend does not currently expose an idempotency key or duplicate-upload window.
 
 ## Webhooks
 
@@ -137,7 +137,7 @@ Official SDKs:
 
 <CardGroup cols={2}>
 <Card title="Core Endpoints" icon="bolt" href="/api-reference/upload">
-  Upload, extract, and generate schemas
+  Upload, extract, batch extract, and generate schemas
 </Card>
 
 <Card title="Data & Querying" icon="database" href="/api-reference/list-extractions">

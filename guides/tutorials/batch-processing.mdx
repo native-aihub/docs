@@ -372,19 +372,26 @@ for f in files:
     f[1].close()
 ```
 
-### 2. Parallel Extraction
+### 2. Async Batch Extraction
 
 ```python
-# Extract from multiple documents simultaneously
-with ThreadPoolExecutor(max_workers=5) as executor:
-    extraction_futures = {
-        executor.submit(extract_document, doc_id, schema): doc_id
-        for doc_id in document_ids
+# Submit uploaded documents as one async batch job
+response = requests.post(
+    f"{BASE_URL}/batch/extract",
+    headers=headers,
+    json={
+        "document_ids": document_ids,
+        "extraction_request": {
+            "schema": schema,
+            "model": "google-gemini-2.5-flash"
+        }
     }
-    
-    extraction_results = []
-    for future in as_completed(extraction_futures):
-        extraction_results.append(future.result())
+)
+response.raise_for_status()
+batch_id = response.json()["batch_id"]
+
+# Poll until status is completed, failed, or partial_failed
+batch = requests.get(f"{BASE_URL}/batch/{batch_id}", headers=headers).json()
 ```
 
 ### 3. Smart Batching
@@ -432,8 +439,8 @@ app.run(port=8080)
 ## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Performance Optimization" icon="gauge-high" href="/guides/performance-optimization">
-  Optimize speed and performance
+<Card title="Automation Pipeline" icon="diagram-project" href="/api/patterns/automation-pipeline">
+  Build resilient document automation workflows
 </Card>
 
 <Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
@@ -448,4 +455,3 @@ app.run(port=8080)
   Explore batch endpoints
 </Card>
 </CardGroup>
-

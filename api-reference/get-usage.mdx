@@ -9,6 +9,10 @@ description: "Get current usage metrics and subscription info"
 GET https://api.documind.cloud/api/v1/usage/current
 ```
 
+## Authentication
+
+Requires `usage:read` scope.
+
 ## Response
 
 ```json
@@ -16,21 +20,29 @@ GET https://api.documind.cloud/api/v1/usage/current
   "user_id": "user-id",
   "subscription": {
     "tier_name": "Professional",
-    "is_active": true
+    "tier_id": "tier-id",
+    "is_active": true,
+    "start_date": "2026-06-01T00:00:00Z",
+    "end_date": null
   },
   "limits": {
     "api_calls_limit": 10000,
-    "extractions_limit": 5000
+    "extractions_limit": 5000,
+    "tokens_limit": 1000000,
+    "storage_bytes_limit": 1073741824
   },
   "current_usage": {
     "api_calls_count": 1250,
-    "extractions_count": 450
+    "extractions_count": 450,
+    "tokens_used": 250000,
+    "storage_bytes": 104857600
   },
   "period": {
-    "start": "2024-01-01T00:00:00Z",
-    "end": "2024-02-01T00:00:00Z",
+    "start": "2026-06-01T00:00:00Z",
+    "end": "2026-07-01T00:00:00Z",
     "days_remaining": 15
-  }
+  },
+  "quota_exceeded": false
 }
 ```
 
@@ -45,4 +57,3 @@ response = requests.get(
 usage = response.json()
 print(f"API calls: {usage['current_usage']['api_calls_count']} / {usage['limits']['api_calls_limit']}")
 ```
-

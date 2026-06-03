@@ -22,7 +22,7 @@ class BatchDocumentProcessor:
     
     def __init__(self, api_key: str, max_workers: int = 5):
         self.api_key = api_key
-        self.base_url = "https://api.documind.com/api/v1"
+        self.base_url = "https://api.documind.cloud/api/v1"
         self.headers = {"X-API-Key": api_key}
         self.max_workers = max_workers
     
@@ -100,9 +100,10 @@ class BatchDocumentProcessor:
         """Upload multiple files, return filename -> doc_id mapping."""
         mappings = {}
         
-        # Upload in batches of 100 (API limit)
-        for i in range(0, len(file_paths), 100):
-            batch = file_paths[i:i+100]
+        # Keep upload chunks small for reliability; the backend has no documented app-level count limit.
+        chunk_size = 10
+        for i in range(0, len(file_paths), chunk_size):
+            batch = file_paths[i:i+chunk_size]
             files = [("files", open(f, "rb")) for f in batch]
             
             try:
@@ -130,7 +131,7 @@ class BatchDocumentProcessor:
         }
         
         if mode == "basic":
-            config["model"] = "openai-gpt-4.1"
+            config["model"] = "google-gemini-2.5-flash"
         elif mode == "vlm":
             config["extraction_mode"] = "vlm"
             config["review_threshold"] = 85
@@ -312,7 +313,7 @@ class DailyInvoiceProcessor:
         """Upload file and return document ID."""
         with open(file_path, "rb") as f:
             response = requests.post(
-                "https://api.documind.com/api/v1/upload",
+                "https://api.documind.cloud/api/v1/upload",
                 headers={"X-API-Key": self.api_key},
                 files={"files": f}
             )
@@ -322,7 +323,7 @@ class DailyInvoiceProcessor:
     def _extract(self, doc_id: str) -> dict:
         """Extract data from document."""
         response = requests.post(
-            f"https://api.documind.com/api/v1/extract/{doc_id}",
+            f"https://api.documind.cloud/api/v1/extract/{doc_id}",
             headers={
                 "X-API-Key": self.api_key,
                 "Content-Type": "application/json"
@@ -342,7 +343,7 @@ class DailyInvoiceProcessor:
         
         while (time.time() - start) < timeout:
             response = requests.get(
-                "https://api.documind.com/api/v1/data/extractions",
+                "https://api.documind.cloud/api/v1/data/extractions",
                 headers={"X-API-Key": self.api_key},
                 params={"document_id": doc_id, "limit": 1}
             )
@@ -477,7 +478,7 @@ class DocumentProcessor(threading.Thread):
         # Upload
         with open(file_path, "rb") as f:
             response = requests.post(
-                "https://api.documind.com/api/v1/upload",
+                "https://api.documind.cloud/api/v1/upload",
                 headers={"X-API-Key": self.api_key},
                 files={"files": f}
             )
@@ -485,7 +486,7 @@ class DocumentProcessor(threading.Thread):
         
         # Extract
         response = requests.post(
-            f"https://api.documind.com/api/v1/extract/{doc_id}",
+            f"https://api.documind.cloud/api/v1/extract/{doc_id}",
             headers={
                 "X-API-Key": self.api_key,
                 "Content-Type": "application/json"
@@ -512,7 +513,7 @@ class DocumentProcessor(threading.Thread):
         
         while (time.time() - start) < timeout:
             response = requests.get(
-                f"https://api.documind.com/api/v1/data/extractions",
+                f"https://api.documind.cloud/api/v1/data/extractions",
                 headers={"X-API-Key": self.api_key},
                 params={"document_id": doc_id, "limit": 1}
             )
@@ -607,7 +608,7 @@ processor.join()
   Detailed polling implementation
 </Card>
 
-<Card title="Error Handling" icon="triangle-exclamation" href="/api/patterns/error-handling">
+<Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
   Robust error handling strategies
 </Card>
 
@@ -615,4 +616,3 @@ processor.join()
   Query extraction results
 </Card>
 </CardGroup>
-

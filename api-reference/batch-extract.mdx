@@ -1,0 +1,204 @@
+---
+title: "Batch Extract"
+description: "Submit asynchronous batch extraction jobs and poll their status"
+---
+
+## Start Batch Extraction
+
+```
+POST https://api.documind.cloud/api/v1/batch/extract
+```
+
+Requires `extractions:write` scope.
+
+Use this endpoint for RPA or backend clients that need to submit several extraction jobs and poll for results later. The current backend implementation uses best-effort in-process background tasks; jobs can remain `pending` if the API process restarts while work is running.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `document_ids` | string[] | Yes | Uploaded document IDs to extract. Must contain at least one UUID |
+| `extraction_request` | object | Yes | Same extraction options used by `POST /extract/{document_id}` |
+
+`extraction_request` supports `prompt`, `schema`, `model`, `extraction_mode`, `review_threshold`, `include_citations`, `agentic_ocr`, and `confidence_instruction`. Prompt-only batch requests are accepted. If `schema` is provided, pass the extraction schema directly in the `schema` field with top-level `named_entities` and `required` keys.
+
+<Note>
+`include_citations` is only valid for Advanced extraction. Do not set `model` or `extraction_mode: "vlm"` when `include_citations` is `true`.
+</Note>
+
+### Request Example
+
+```json
+{
+  "document_ids": [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
+  ],
+  "extraction_request": {
+    "prompt": "Extract invoice fields",
+    "schema": {
+      "named_entities": {
+        "invoice_number": {
+          "type": "string",
+          "description": "Invoice number"
+        }
+      },
+      "required": ["invoice_number"]
+    },
+    "model": "google-gemini-2.5-flash",
+    "include_citations": false
+  }
+}
+```
+
+### Response
+
+Returns `202 Accepted` with a batch ID and one pending extraction item per document.
+
+```json
+{
+  "batch_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "status": "pending",
+  "items": [
+    {
+      "document_id": "11111111-1111-1111-1111-111111111111",
+      "extraction_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "status": "pending"
+    },
+    {
+      "document_id": "22222222-2222-2222-2222-222222222222",
+      "extraction_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+## Get Batch Status
+
+```
+GET https://api.documind.cloud/api/v1/batch/{batch_id}
+```
+
+Requires `extractions:read` scope.
+
+Poll this endpoint until the aggregate `status` is `completed`, `failed`, or `partial_failed`.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `batch_id` | string (UUID) | Yes | Batch ID returned by `POST /batch/extract` |
+
+### Aggregate Status Values
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | At least one item is still pending and none have failed |
+| `completed` | Every item completed |
+| `failed` | Every item failed |
+| `partial_failed` | At least one item failed and at least one item did not fail |
+
+### Response
+
+```json
+{
+  "batch_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "status": "partial_failed",
+  "total": 2,
+  "pending": 0,
+  "completed": 1,
+  "failed": 1,
+  "items": [
+    {
+      "document_id": "11111111-1111-1111-1111-111111111111",
+      "extraction_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "original_filename": "invoice-1.pdf",
+      "status": "completed",
+      "results": {
+        "invoice_number": "INV-001"
+      },
+      "needs_review": false,
+      "needs_review_metadata": {},
+      "results_metadata": {
+        "batch_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      },
+      "error_message": null,
+      "parsed_content": null,
+      "layout": null,
+      "sources": null
+    },
+    {
+      "document_id": "22222222-2222-2222-2222-222222222222",
+      "extraction_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "original_filename": "invoice-2.pdf",
+      "status": "failed",
+      "results": {},
+      "needs_review": false,
+      "needs_review_metadata": {},
+      "results_metadata": {
+        "batch_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      },
+      "error_message": "Extraction failed. Please contact support.",
+      "parsed_content": null,
+      "layout": null,
+      "sources": null
+    }
+  ]
+}
+```
+
+## Example
+
+```python
+import time
+import requests
+
+BASE_URL = "https://api.documind.cloud/api/v1"
+headers = {"X-API-Key": API_KEY}
+
+start = requests.post(
+    f"{BASE_URL}/batch/extract",
+    headers=headers,
+    json={
+        "document_ids": document_ids,
+        "extraction_request": {
+            "schema": schema,
+            "model": "google-gemini-2.5-flash",
+            "prompt": "Extract invoice fields"
+        }
+    }
+)
+start.raise_for_status()
+batch_id = start.json()["batch_id"]
+
+while True:
+    status_response = requests.get(
+        f"{BASE_URL}/batch/{batch_id}",
+        headers=headers
+    )
+    status_response.raise_for_status()
+    batch = status_response.json()
+
+    if batch["status"] in {"completed", "failed", "partial_failed"}:
+        break
+
+    time.sleep(10)
+
+for item in batch["items"]:
+    if item["status"] == "completed":
+        process_results(item["results"])
+    else:
+        handle_failure(item["document_id"], item["error_message"])
+```
+
+## Error Responses
+
+| Code | Description |
+|------|-------------|
+| 400 | Invalid batch ID, schema, model name, or citation-mode combination |
+| 402 | Insufficient credits |
+| 403 | No access to one of the requested documents |
+| 404 | Batch not found |
+| 422 | Empty `document_ids` list or invalid document ID UUID |
+| 500 | Batch submission or status lookup failed |

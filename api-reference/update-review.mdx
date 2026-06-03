@@ -1,0 +1,49 @@
+---
+title: "Update Review"
+description: "Submit reviewed extraction results for a document"
+---
+
+## Endpoint
+
+```
+PUT https://api.documind.cloud/api/v1/review/{document_id}
+```
+
+## Authentication
+
+Requires `extractions:write` scope.
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the document whose extraction was reviewed |
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reviewed_results` | object | Yes | Human-reviewed extraction data |
+
+## Response
+
+```json
+{
+  "status": "success"
+}
+```
+
+## Example
+
+```python
+response = requests.put(
+    f"https://api.documind.cloud/api/v1/review/{document_id}",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "reviewed_results": {
+            "invoice_number": "INV-2026-001",
+            "total": 1250.00
+        }
+    }
+)
+```

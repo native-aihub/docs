@@ -27,13 +27,13 @@ graph TD
 
 <Steps>
 <Step title="Upload Files">
-  Submit documents via `POST /upload`. Supports batching up to 100 files.
+  Submit documents via `POST /upload`. You may send multiple `files` form fields in one request.
   
   ```python
   import requests
   
   response = requests.post(
-      "https://api.documind.com/api/v1/upload",
+      "https://api.documind.cloud/api/v1/upload",
       headers={"X-API-Key": "your_api_key"},
       files=[
           ("files", open("invoice1.pdf", "rb")),
@@ -45,7 +45,7 @@ graph TD
   ```
   
   **Credit Impact**: No credits charged for upload  
-  **Storage**: Documents stored for 30 days
+  **Storage**: No public retention SLA is exposed by the backend
 </Step>
 
 <Step title="Receive Document IDs">
@@ -112,7 +112,7 @@ Choose one of three approaches:
   # Upload sample document
   with open("sample_policy.pdf", "rb") as f:
       response = requests.post(
-          "https://api.documind.com/api/v1/upload",
+          "https://api.documind.cloud/api/v1/upload",
           headers={"X-API-Key": "your_api_key"},
           files={"files": f}
       )
@@ -120,7 +120,7 @@ Choose one of three approaches:
   
   # Generate schema from sample
   response = requests.post(
-      f"https://api.documind.com/api/v1/schema/{sample_id}",
+      f"https://api.documind.cloud/api/v1/schema/{sample_id}",
       headers={"X-API-Key": "your_api_key"}
   )
   schema = response.json()["schema"]
@@ -129,7 +129,7 @@ Choose one of three approaches:
   **Option 2: Generate from Description**
   ```python
   response = requests.post(
-      "https://api.documind.com/api/v1/schema/generate-dynamic-schema/",
+      "https://api.documind.cloud/api/v1/generate-dynamic-schema/",
       headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
       json={
           "schema_name": "insurance_policy",
@@ -175,11 +175,11 @@ Start
 import requests
 
 response = requests.post(
-    f"https://api.documind.com/api/v1/extract/{document_id}",
+    f"https://api.documind.cloud/api/v1/extract/{document_id}",
     headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
     json={
         "schema": schema,
-        "model": "openai-gpt-4.1",  # or "google-gemini-2.0-flash"
+        "model": "google-gemini-2.5-flash",  # or "qwen-3-vl"
         "prompt": "Extract all invoice fields accurately"
     }
 )
@@ -198,7 +198,7 @@ else:
 import requests
 
 response = requests.post(
-    f"https://api.documind.com/api/v1/extract/{document_id}",
+    f"https://api.documind.cloud/api/v1/extract/{document_id}",
     headers={"X-API-Key": "your_api_key", "Content-Type": "application/json"},
     json={
         "schema": schema,
@@ -252,7 +252,7 @@ Only triggered when `needs_review = true`:
   send_email(
       to="reviewers@company.com",
       subject=f"Review Needed: {filename}",
-      body=f"Document {document_id} needs review at https://app.documind.com/review"
+      body=f"Document {document_id} needs review at https://app.documind.cloud/review"
   )
   ```
 </Step>
@@ -269,7 +269,7 @@ Only triggered when `needs_review = true`:
       
       while (time.time() - start_time) < timeout:
           response = requests.get(
-              "https://api.documind.com/api/v1/data/extractions",
+              "https://api.documind.cloud/api/v1/data/extractions",
               headers={"X-API-Key": "your_api_key"},
               params={"document_id": document_id, "limit": 1}
           )
@@ -299,7 +299,7 @@ Only triggered when `needs_review = true`:
   import requests
   
   response = requests.get(
-      "https://api.documind.com/api/v1/data/extractions",
+      "https://api.documind.cloud/api/v1/data/extractions",
       headers={"X-API-Key": "your_api_key"},
       params={"document_id": document_id, "limit": 1}
   )
@@ -355,7 +355,7 @@ class DocumindWorkflow:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.base_url = "https://api.documind.com/api/v1"
+        self.base_url = "https://api.documind.cloud/api/v1"
         self.headers = {"X-API-Key": api_key}
     
     def process_document(
@@ -392,7 +392,7 @@ class DocumindWorkflow:
         config = {"schema": schema, "prompt": "Extract all data accurately"}
         
         if mode == "basic":
-            config["model"] = "openai-gpt-4.1"
+            config["model"] = "google-gemini-2.5-flash"
         elif mode == "vlm":
             config["extraction_mode"] = "vlm"
             config["review_threshold"] = 80
@@ -410,7 +410,7 @@ class DocumindWorkflow:
         
         # Phase 4: Handle review if needed
         if result["needs_review"]:
-            print(f"⚠️  Document needs review - direct team to UI: https://app.documind.com/review")
+            print(f"⚠️  Document needs review - direct team to UI: https://app.documind.cloud/review")
             
             # Poll for review completion
             print(f"⏳ Waiting for human review...")
@@ -471,7 +471,7 @@ except Exception as e:
   
   **Solutions**:
   - Verify file is not corrupted
-  - Check file size < 50MB
+  - Retry with a smaller request if infrastructure rejects the upload size
   - Ensure file format is supported
   - Retry with exponential backoff
 </Accordion>
@@ -526,4 +526,3 @@ except Exception as e:
   Production-ready automation examples
 </Card>
 </CardGroup>
-

@@ -1,0 +1,43 @@
+---
+title: "List Pending Reviews"
+description: "List extractions waiting for human review"
+---
+
+## Endpoint
+
+```
+GET https://api.documind.cloud/api/v1/pending-reviews
+```
+
+## Authentication
+
+Requires `extractions:read` scope.
+
+## Response
+
+```json
+[
+  {
+    "id": "extraction-id",
+    "document_id": "document-id",
+    "user_id": "user-id",
+    "filename": "invoice.pdf",
+    "created_at": "2026-06-02T10:30:00Z",
+    "updated_at": "2026-06-02T10:30:00Z",
+    "status": "completed"
+  }
+]
+```
+
+## Example
+
+```python
+response = requests.get(
+    "https://api.documind.cloud/api/v1/pending-reviews",
+    headers={"X-API-Key": API_KEY}
+)
+
+pending_reviews = response.json()
+```
+
+Use `GET /api/v1/data/extractions/{extraction_id}` for full extraction details.

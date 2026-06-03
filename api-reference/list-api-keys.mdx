@@ -9,6 +9,10 @@ description: "List all API keys for your account"
 GET https://api.documind.cloud/api/v1/auth/api-keys
 ```
 
+## Authentication
+
+Requires `api_keys:read` scope.
+
 ## Response
 
 ```json
@@ -16,10 +20,17 @@ GET https://api.documind.cloud/api/v1/auth/api-keys
   {
     "id": "key-id",
     "name": "Production Key",
+    "description": "Production automation",
     "prefix": "abc12345",
-    "scopes": ["read:extractions", "write:extractions"],
+    "scopes": ["extractions:read", "extractions:write"],
     "is_active": true,
-    "created_at": "2024-01-15T10:00:00Z"
+    "is_revoked": false,
+    "project_name": "Invoices",
+    "expires_at": null,
+    "last_used_at": null,
+    "revoked_at": null,
+    "created_at": "2026-06-02T10:00:00Z",
+    "updated_at": "2026-06-02T10:00:00Z"
   }
 ]
 ```
@@ -27,4 +38,3 @@ GET https://api.documind.cloud/api/v1/auth/api-keys
 <Note>
 Full API keys are never returned in list responses, only the prefix.
 </Note>
-
