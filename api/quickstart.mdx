@@ -417,50 +417,43 @@ Choose the right mode for your use case:
 
 ### Batch Processing
 
-Process multiple documents in parallel:
+Submit multiple uploaded documents as one asynchronous batch, then poll for aggregate status:
 
 ```python Python
-import concurrent.futures
-import requests
 import time
+import requests
 
 API_KEY = "your_api_key_here"
 BASE_URL = "https://api.documind.cloud/api/v1"
+headers = {"X-API-Key": API_KEY}
 
-def process_document(file_path):
-    # Upload
-    with open(file_path, "rb") as f:
-        response = requests.post(
-            f"{BASE_URL}/upload",
-            headers={"X-API-Key": API_KEY},
-            files={"files": f}
-        )
-    document_id = response.json()[0]
-    
-    # Extract
-    result = requests.post(
-        f"{BASE_URL}/extract/{document_id}",
-        headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
-        json={"schema": schema, "prompt": "Extract data"}
+start = requests.post(
+    f"{BASE_URL}/batch/extract",
+    headers=headers,
+    json={
+        "document_ids": document_ids,
+        "extraction_request": {
+            "schema": schema,
+            "model": "google-gemini-2.5-flash",
+            "prompt": "Extract data"
+        }
+    }
+)
+start.raise_for_status()
+batch_id = start.json()["batch_id"]
+
+while True:
+    batch = requests.get(
+        f"{BASE_URL}/batch/{batch_id}",
+        headers=headers
     ).json()
-    
-    # Handle review if needed
-    if result["needs_review"]:
-        # Poll for review completion
-        while True:
-            extractions = requests.get(
-                f"{BASE_URL}/data/extractions",
-                headers={"X-API-Key": API_KEY},
-                params={"document_id": document_id, "limit": 1}
-            ).json()
-            if extractions["items"][0]["is_reviewed"]:
-                return extractions["items"][0]["reviewed_results"]
-            time.sleep(10)
-    return result["results"]
 
-# Process 10 documents concurrently
-with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-    results = list(executor.map(process_document, document_files))
+    if batch["status"] in {"completed", "failed", "partial_failed"}:
+        break
+
+    time.sleep(10)
+
+results = [item for item in batch["items"] if item["status"] == "completed"]
 ```
 
 ### Error Handling
@@ -534,4 +527,3 @@ Start with Basic extraction for testing, then upgrade to Advanced for production
   Robust error handling strategies
 </Card>
 </CardGroup>
-

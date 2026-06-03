@@ -177,6 +177,10 @@ UUID of user who performed review. `null` if not reviewed.
 Extracted data matching the schema.
 </ResponseField>
 
+<ResponseField name="results_metadata" type="object | null">
+Metadata returned by extraction processing. Batch extractions include `batch_id` here.
+</ResponseField>
+
 <ResponseField name="reviewed_results" type="object | null">
 Corrected data after human review. `null` if not reviewed. **Use this for automation if `is_reviewed = true`**.
 </ResponseField>
@@ -572,4 +576,3 @@ Server-side error:
   Submit reviewed extraction results
 </Card>
 </CardGroup>
-

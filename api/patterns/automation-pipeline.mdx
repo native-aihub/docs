@@ -100,9 +100,10 @@ class BatchDocumentProcessor:
         """Upload multiple files, return filename -> doc_id mapping."""
         mappings = {}
         
-        # Upload in batches of 100 (API limit)
-        for i in range(0, len(file_paths), 100):
-            batch = file_paths[i:i+100]
+        # Keep upload chunks small for reliability; the backend has no documented app-level count limit.
+        chunk_size = 10
+        for i in range(0, len(file_paths), chunk_size):
+            batch = file_paths[i:i+chunk_size]
             files = [("files", open(f, "rb")) for f in batch]
             
             try:
@@ -615,4 +616,3 @@ processor.join()
   Query extraction results
 </Card>
 </CardGroup>
-
