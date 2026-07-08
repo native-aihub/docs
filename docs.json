@@ -45,7 +45,8 @@
           {
             "group": "Data Endpoints",
             "pages": [
-              "api/data/list-extractions"
+              "api/data/list-extractions",
+              "api/data/dashboard-telemetry"
             ]
           },
           {
@@ -149,7 +150,8 @@
               "api-reference/get-usage",
               "api-reference/get-credits",
               "api-reference/get-usage-history",
-              "api-reference/get-usage-summary"
+              "api-reference/get-usage-summary",
+              "api-reference/dashboard-telemetry"
             ]
           }
         ]
