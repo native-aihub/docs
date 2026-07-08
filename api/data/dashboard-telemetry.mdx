@@ -1,0 +1,166 @@
+---
+title: "Dashboard Telemetry"
+description: "Build customer management dashboards with credits, pages, throughput, and processing-time metrics"
+---
+
+## Endpoint
+
+```
+GET /data/dashboard/telemetry
+```
+
+Use this endpoint to power customer-facing management dashboards. It returns scoped usage telemetry for credits spent, pages processed, extraction volume, processing status, review activity, token usage, credit balance, active users, active API keys, and time-series breakdowns.
+
+## Authentication
+
+<ParamField header="X-API-Key" type="string" required>
+API key with the `usage:read` scope.
+</ParamField>
+
+## Access Scope
+
+The endpoint automatically scopes results based on the authenticated user:
+
+| Caller | Default scope |
+| --- | --- |
+| Project member | Active project only |
+| Organization admin | Entire organization |
+| Platform admin | Platform-wide unless filters are provided |
+
+<Warning>
+Regular project members cannot request telemetry for a project other than their active project.
+</Warning>
+
+## Query Parameters
+
+<ParamField query="organization_id" type="string">
+Organization UUID. Non-admin users can only request their own organization.
+</ParamField>
+
+<ParamField query="project_id" type="string">
+Project UUID. Organization admins can request any project in their organization; regular members can only request their active project.
+</ParamField>
+
+<ParamField query="user_id" type="string">
+User UUID. Platform admin only.
+</ParamField>
+
+<ParamField query="days" type="integer" default="30">
+Relative lookback window when `start_date` is omitted. Range: `1` to `3660`.
+</ParamField>
+
+<ParamField query="start_date" type="string">
+Inclusive ISO 8601 start timestamp.
+</ParamField>
+
+<ParamField query="end_date" type="string">
+Inclusive ISO 8601 end timestamp. Defaults to the current time.
+</ParamField>
+
+<ParamField query="group_by" type="string" default="day">
+Time-series grouping. Options: `day`, `week`, `month`.
+</ParamField>
+
+## Response Shape
+
+<ResponseField name="scope" type="object">
+Resolved telemetry scope: `platform`, `organization`, `project`, or `user`.
+</ResponseField>
+
+<ResponseField name="period" type="object">
+Resolved date range and time-series grouping.
+</ResponseField>
+
+<ResponseField name="summary" type="object">
+Top-line metrics for documents, credits, pages, tokens, reviews, activity, credit balance, and processing time.
+</ResponseField>
+
+<ResponseField name="timeseries" type="array">
+Per-period counts for extraction records, completed/failed/pending records, charged documents, pages, credits, and tokens.
+</ResponseField>
+
+<ResponseField name="breakdowns" type="object">
+Breakdowns by status, project, and model/cost tier.
+</ResponseField>
+
+<ResponseField name="data_quality" type="object">
+Coverage and deduplication metadata, including processing-time coverage.
+</ResponseField>
+
+## Example
+
+<RequestExample>
+```bash cURL
+curl "https://api.documind.cloud/api/v1/data/dashboard/telemetry?days=30&group_by=day" \
+  -H 'X-API-Key: YOUR_API_KEY'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "scope": {
+    "type": "organization",
+    "organization_id": "22222222-2222-2222-2222-222222222222",
+    "project_id": null,
+    "user_id": null
+  },
+  "summary": {
+    "documents": {
+      "extraction_records": 5619,
+      "charged_documents": 5473,
+      "completed_records": 5473,
+      "failed_records": 146,
+      "pending_records": 0,
+      "success_rate_percentage": 97.4,
+      "failure_rate_percentage": 2.6
+    },
+    "credits": {
+      "spent": 64836,
+      "extraction": 64821,
+      "citation_matching": 15,
+      "average_per_charged_document": 11.85,
+      "average_per_page": 10.15
+    },
+    "pages": {
+      "processed": 6390,
+      "average_per_charged_document": 1.17
+    },
+    "tokens": {
+      "used": 94355452
+    }
+  },
+  "timeseries": [
+    {
+      "period": "2026-07-07",
+      "extraction_records": 30,
+      "completed_records": 30,
+      "failed_records": 0,
+      "pending_records": 0,
+      "charged_documents": 30,
+      "pages_processed": 31,
+      "credits_spent": 310,
+      "tokens_used": 450000
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## Notes
+
+- Credit spend is calculated from debit transactions joined to extraction records by `document_id`.
+- `processing_time_seconds` is stored for newly created extraction records. Historical rows may appear under `missing_records`.
+- Use short caching windows for customer dashboards to avoid repeatedly aggregating the same range.
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="List Extractions" icon="list" href="/api/data/list-extractions">
+  Query extraction history and review state.
+</Card>
+
+<Card title="Usage Summary" icon="chart-line" href="/api-reference/get-usage-summary">
+  Retrieve user-level usage totals.
+</Card>
+</CardGroup>
