@@ -1,0 +1,71 @@
+---
+title: "Submit Review Decision"
+description: "Approve, reject, or expire a pending document with reliable retry semantics"
+---
+
+```http
+POST /api/v1/review/{document_id}/decision
+```
+
+Requires `extractions:write` and document organization/project access. Use existing authentication headers and `X-Project-ID` when using an active project. Check [capabilities](/api-reference/review-capabilities) first. Only `pending` can transition to approved, rejected, or expired. Terminal decisions cannot be changed or reopened.
+
+| Field | Requirement |
+| --- | --- |
+| `decision` | `approved`, `rejected`, or `expired` |
+| `reason_code` | The reason listed below for the chosen decision |
+| `comment` | Optional, at most 2000 characters; required and nonblank for rejection reason `other` |
+| `reviewed_results` | Optional object for approval only; an empty object is valid |
+| `idempotency_key` | Required UUID; retain it and the exact payload for an uncertain retry |
+
+## Reject
+
+```json
+{
+  "decision": "rejected",
+  "reason_code": "wrong_document",
+  "comment": "This upload belongs to another workflow.",
+  "idempotency_key": "5dbe3d58-0a03-4eae-aa74-fcf163a2bc39"
+}
+```
+
+Reasons: `wrong_document`, `duplicate_document`, `out_of_scope`, `other`. Omit `reviewed_results`, including explicit null. Rejection retains the document, results, technical status, and credit history. Your integration reads the decision and cancels its own downstream work.
+
+## Approve
+
+Approval requires technical `status=completed`.
+
+```json
+{
+  "decision": "approved",
+  "reason_code": "review_approved",
+  "reviewed_results": {"invoice_number": "INV-2026-001"},
+  "idempotency_key": "7a4b113d-5b78-4a56-a497-ab5b60497220"
+}
+```
+
+## Caller-triggered expiry
+
+An authorized API-key caller can expire a document that has been pending for strictly more than ten days, measured by server UTC time from `review_requested_at`. Interactive users cannot expire documents. No scheduler or webhook is provided. A local polling timeout does not expire a document.
+
+```json
+{
+  "decision": "expired",
+  "reason_code": "review_timeout",
+  "idempotency_key": "c2300b6c-2038-4aa3-924b-01c14bb55a8d"
+}
+```
+
+Omit `reviewed_results`. Historical pending records start their age at migration time because their original request age is unknown.
+
+## Response and retries
+
+Success returns the [current state and decision evidence](/api-reference/get-review). An identical retry with the same caller and idempotency key returns the original decision without another event. Generate a new UUID for a new decision. Do not change the payload or caller when retrying an uncertain request. Access checks still apply to retries.
+
+| Status | Action |
+| --- | --- |
+| `409` | Refresh state and capabilities. The state, identity, feature support, or expiry age may conflict. Do not automatically submit a different decision. |
+| `422` | Correct the invalid request. |
+| `403` | Check scope and organization/project access. |
+| `404` | Check the document identity. |
+
+Multiple extraction rows for one legacy document identity can return `409`; resolve the identity before deciding. Concurrent decisions have one winner.

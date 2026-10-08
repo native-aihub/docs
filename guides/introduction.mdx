@@ -3,6 +3,9 @@ title: "Introduction to Documind"
 description: "Intelligent document extraction for automation workflows"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## What is Documind?
 
 Documind is an AI-powered document extraction platform that transforms unstructured documents into structured data. Whether you're processing invoices, forms, receipts, or contracts, Documind uses advanced LLM models to extract information accurately and efficiently.
@@ -104,15 +107,15 @@ Extract information from IDs, passports, and verification documents.
 │    Data     │  → Returns results + needs_review flag
 └──────┬──────┘
        │
-       ├──► needs_review = false
+       ├──► review_status = not_required AND status = completed
        │    ✓ Use results immediately
        │
-       └──► needs_review = true
+       └──► review_status = pending
             ↓ Human reviews and corrects
             ↓ PUT /api/v1/review/{document_id}
             ↓
             ✓ Poll GET /api/v1/data/extractions?document_id=...
-              until is_reviewed = true
+              until explicit decision; cancel on rejected/expired
 ```
 
 ## Getting Started

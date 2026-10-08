@@ -20,7 +20,8 @@ Requires `extractions:read` scope.
 | `skip` | integer | Number of items to skip (default: 0) |
 | `limit` | integer | Maximum items to return (default: 100, max: 1000) |
 | `document_id` | string (UUID) | Filter by document ID |
-| `needs_review` | boolean | Filter by review status |
+| `review_status` | string | Explicit review state, such as `pending` or `rejected` |
+| `needs_review` | boolean | Legacy review requirement flag |
 | `is_reviewed` | boolean | Filter by reviewed state |
 | `created_after` | string (ISO date) | Filter by creation date |
 | `created_before` | string (ISO date) | Filter by creation date |
@@ -97,3 +98,5 @@ const response = await axios.get(
   Learn about the review workflow
 </Card>
 </CardGroup>
+
+Use `review_status` for automation. Review state, request/decision timestamps, reason, comment, and decision ID are included in history responses after the review migration. See [current review state](/api-reference/get-review) for fields and audit evidence.

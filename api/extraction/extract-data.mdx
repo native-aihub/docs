@@ -3,6 +3,9 @@ title: "Extract Data"
 description: "Extract structured data from documents using AI"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## Endpoint
 
 ```
@@ -60,7 +63,7 @@ If provided, uses Basic extraction mode (single model, no confidence scores).
 For **VLM Extraction** only. Set to:
 - `vlm` (10 credits/page) - Vision-based extraction for scanned docs
 
-For **Advanced extraction** (15 credits/page): Don't set this parameter AND don't set `model`.  
+For **Advanced extraction** (15 credits/page): Don't set this parameter AND don't set `model`.
 For **Basic extraction**: Set `model` parameter instead.
 </ParamField>
 
@@ -101,10 +104,10 @@ Metadata about fields needing review. Only present in Advanced/VLM modes.
 
 <Expandable title="Metadata Structure">
   <ResponseField name="confidence_scores" type="object">
-  Confidence scores (0-100) for each extracted field. Calculated as:  
+  Confidence scores (0-100) for each extracted field. Calculated as:
   `0.4 * lexical_similarity + 0.6 * semantic_similarity`
   </ResponseField>
-  
+
   <ResponseField name="review_flags" type="object">
   Boolean flags indicating which fields need review.
   </ResponseField>
@@ -280,12 +283,11 @@ response = requests.post(
 result = response.json()
 
 # Check if review is needed
-if result["needs_review"]:
-    print("Some fields need review:")
-    for field, needs_review in result["needs_review_metadata"]["review_flags"].items():
-        if needs_review:
-            confidence = result["needs_review_metadata"]["confidence_scores"][field]
-            print(f"  - {field}: {confidence:.1f}% confidence")
+print("Some fields need review:")
+for field, needs_review in result["needs_review_metadata"]["review_flags"].items():
+    if needs_review:
+        confidence = result["needs_review_metadata"]["confidence_scores"][field]
+        print(f"  - {field}: {confidence:.1f}% confidence")
 ```
 </RequestExample>
 

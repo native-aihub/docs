@@ -47,3 +47,9 @@ response = requests.put(
     }
 )
 ```
+
+## Approval compatibility
+
+This endpoint is a guarded approval adapter. It accepts only a pending document with completed technical processing and the caller's organization/project write access. It cannot approve rejected, expired, legacy-reviewed, or not-required records, or bypass state checks.
+
+For client-managed retry identities, use [Submit Review Decision](/api-reference/review-decision) with `decision=approved`, `reason_code=review_approved`, and a UUID idempotency key. The legacy PUT generates its own request identity; a blind retry can return a conflict after the original approval succeeds.

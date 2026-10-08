@@ -1,0 +1,45 @@
+---
+title: "Get Review State"
+description: "Read current review state and immutable decision evidence"
+---
+
+```http
+GET /api/v1/review/{document_id}
+```
+
+Requires `extractions:read` and access to the document's organization and project. Send `X-API-Key` and, when using an active project, `X-Project-ID`.
+
+```json
+{
+  "document_id": "44444444-4444-4444-4444-444444444444",
+  "review_status": "rejected",
+  "review_requested_at": "2026-10-07T08:00:00Z",
+  "review_decided_at": "2026-10-07T08:02:00Z",
+  "review_reason_code": "wrong_document",
+  "review_comment": "This upload belongs to another workflow.",
+  "review_decision_id": "aac02c53-9ea7-4c7c-9486-176a9efb54c4",
+  "decision": {
+    "id": "aac02c53-9ea7-4c7c-9486-176a9efb54c4",
+    "extraction_id": "d8f1487c-55c9-4b35-ab1b-0ba76b03f688",
+    "document_id": "44444444-4444-4444-4444-444444444444",
+    "organization_id": "22222222-2222-2222-2222-222222222222",
+    "project_id": "d86ef97d-68bd-4396-b685-0b22723bc377",
+    "previous_state": "pending",
+    "new_state": "rejected",
+    "actor_user_id": "11111111-1111-1111-1111-111111111111",
+    "actor_api_key_id": null,
+    "decided_at": "2026-10-07T08:02:00Z",
+    "reason_code": "wrong_document",
+    "comment": "This upload belongs to another workflow.",
+    "idempotency_key": "5dbe3d58-0a03-4eae-aa74-fcf163a2bc39"
+  }
+}
+```
+
+For pending documents, decision fields and `decision` are null. Extraction history, extraction detail, synchronous extraction responses, batch items, and pending summaries also expose review state and metadata. Read this endpoint for the full decision evidence.
+
+Use `GET /api/v1/data/extractions?review_status=pending` for the pending queue. Rejected and expired records retain `needs_review=true` and `is_reviewed=false`; boolean filters do not identify the pending queue.
+
+See [availability](/api-reference/review-capabilities) and [state dispatch](/api/review/polling-pattern). This response records the Documind decision. It does not confirm that your downstream system canceled its work item.
+
+If multiple extraction records share a document identity, this route returns `409`, including records in different projects. Do not automatically choose one record or infer approval from a project-filtered list. Resolve the identity before deciding.

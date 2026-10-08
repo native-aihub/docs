@@ -3,6 +3,9 @@ title: "API Overview"
 description: "Intelligent document extraction API for automation workflows"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## What is Documind API?
 
 Documind provides a powerful document extraction API designed for automation developers and integration engineers. Upload documents, define extraction schemas, and receive structured JSON data with confidence scores and automatic review flagging.
@@ -43,7 +46,7 @@ Documind provides a powerful document extraction API designed for automation dev
 </Step>
 
 <Step title="Handle Reviews">
-  Poll `/data/extractions` to detect when `is_reviewed=true` for documents that needed review. Use corrected data in your automation.
+  Poll `/data/extractions` to detect when `review_status=approved` for documents that needed review. Use corrected data in your automation.
 </Step>
 </Steps>
 
@@ -55,19 +58,19 @@ Documind provides a powerful document extraction API designed for automation dev
   - `google-gemini-3-flash` (6 credits)
   - `google-gemini-2.5-flash` (4 credits)
   - `qwen-3-vl` (2 credits)
-  
+
   Best for simple documents where extensive validation isn't required.
 </Accordion>
 
 <Accordion title="VLM Based Extraction (10 credits/page)">
   Uses native visual data to process content through multiple Vision-Language Models.
-  
+
   Best for low-text, high-visual content like scanned documents, images, or forms where layout is crucial.
 </Accordion>
 
 <Accordion title="Advanced Extraction (15 credits/page)">
   Multi-model ensemble extraction utilizing document layout, reading order, and OCR'd text.
-  
+
   Includes confidence scores and automatic review flagging. Best for structured documents like invoices, forms, and tables requiring high accuracy. Activated by not setting `model` or `extraction_mode` parameters.
 </Accordion>
 </AccordionGroup>
@@ -83,64 +86,20 @@ Documind provides a powerful document extraction API designed for automation dev
 
 ### Integration Examples
 
-<CodeGroup>
-```python Python
-# Typical automation workflow
-import requests
+Copy `poll_for_review` from [Polling for Reviews](/api/review/polling-pattern) into a local `review_polling.py` module in your integration. Copy the imports and function definition only; keep the module-level usage demonstration in your caller. This is customer code, not an installed SDK. Synchronous extraction responses do not include technical `status`; the helper reads stored state.
 
-API_KEY = "your_api_key"
-headers = {"X-API-Key": API_KEY}
-
-# 1. Upload documents
-files = [("files", open("invoice1.pdf", "rb")), ("files", open("invoice2.pdf", "rb"))]
-response = requests.post("https://api.documind.cloud/api/v1/upload", headers=headers, files=files)
-doc_ids = response.json()
-
-# 2. Extract with schema
-for doc_id in doc_ids:
-    response = requests.post(
-        f"https://api.documind.cloud/api/v1/extract/{doc_id}",
-        headers=headers,
-        json={"schema": invoice_schema, "review_threshold": 85}
-    )
-    result = response.json()
-    
-    # 3. Check if needs review
-    if result['needs_review']:
-        # Direct team to UI for review, then poll for completion
-        print(f"⚠️ Review needed - direct team to: https://app.documind.cloud/review")
-        
-        # Poll until reviewed
-        while True:
-            ext_response = requests.get(
-                "https://api.documind.cloud/api/v1/data/extractions",
-                headers=headers,
-                params={"document_id": doc_id, "limit": 1}
-            )
-            extraction = ext_response.json()["items"][0]
-            if extraction["is_reviewed"]:
-                process_invoice(extraction["reviewed_results"])
-                break
-            time.sleep(10)
-    else:
-        process_invoice(result['results'])
+```python
+from review_polling import poll_for_review
+outcome = poll_for_review(document_id, api_key)
+if outcome["outcome"] == "continue":
+    process_document(outcome["results"])
+elif outcome["outcome"] == "cancel":
+    cancel_downstream_work_item(document_id)
+elif outcome["outcome"] == "legacy_policy":
+    apply_existing_legacy_policy(document_id)
+else:
+    alert_review_team(document_id)
 ```
-
-```javascript Node.js
-// Automation pipeline with polling
-const results = await Promise.all(
-  docIds.map(id => extract(id, { schema, model: 'google-gemini-2.5-flash' }))
-);
-
-// Filter out items needing review
-const needsReview = results.filter(r => r.needs_review);
-
-// Poll until reviewed
-for (const item of needsReview) {
-  await pollUntilReviewed(item.document_id);
-}
-```
-</CodeGroup>
 
 ## Authentication
 

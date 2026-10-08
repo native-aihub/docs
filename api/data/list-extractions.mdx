@@ -3,6 +3,9 @@ title: "List Extractions"
 description: "Query and filter extraction results with pagination"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## Endpoint
 
 ```
@@ -35,6 +38,10 @@ Filter by extraction status.
 Options: `completed`, `processing`, `failed`, `pending`
 </ParamField>
 
+<ParamField query="review_status" type="string">
+Explicit state: `not_required`, `pending`, `approved`, `rejected`, `expired`, or `legacy_reviewed`. Use `pending` for the review queue.
+</ParamField>
+
 <ParamField query="needs_review" type="boolean">
 Filter by review requirement.
 
@@ -48,7 +55,7 @@ Filter by review requirement.
 Filter by review completion status.
 
 ```bash
-?is_reviewed=true    # Only reviewed extractions
+?is_reviewed=true    # Legacy boolean filter; not explicit approval
 ?is_reviewed=false   # Not yet reviewed
 ```
 </ParamField>
@@ -182,7 +189,7 @@ Metadata returned by extraction processing. Batch extractions include `batch_id`
 </ResponseField>
 
 <ResponseField name="reviewed_results" type="object | null">
-Corrected data after human review. `null` if not reviewed. **Use this for automation if `is_reviewed = true`**.
+Corrected data after human review. `null` if not reviewed. **Use this for automation if `review_status = approved`**.
 </ResponseField>
 
 <ResponseField name="needs_review_metadata" type="object">
@@ -197,7 +204,7 @@ Check if a specific document has been reviewed:
 
 <CodeGroup>
 ```bash cURL
-curl "https://api.documind.cloud/api/v1/data/extractions?document_id=550e8400-e29b-41d4-a716-446655440000&limit=1" \
+curl "https://api.documind.cloud/api/v1/data/extractions?document_id=550e8400-e29b-41d4-a716-446655440000&limit=2" \
   -H 'X-API-Key: YOUR_API_KEY'
 ```
 
@@ -209,25 +216,31 @@ response = requests.get(
     headers={"X-API-Key": API_KEY},
     params={
         "document_id": "550e8400-e29b-41d4-a716-446655440000",
-        "limit": 1
+        "limit": 2
     }
 )
 
 data = response.json()
 
 if data["items"]:
+    if len(data["items"]) != 1:
+        raise RuntimeError("Missing or ambiguous document; stop processing")
     extraction = data["items"][0]
-    
-    if extraction["is_reviewed"]:
+    if extraction.get("review_status") in ("rejected", "expired"):
+        raise RuntimeError("Cancel this downstream work item; do not process results")
+    if extraction.get("review_status") not in ("pending", "approved", "not_required"):
+        raise RuntimeError("Stop processing; check legacy policy or deployment compatibility")
+
+    if extraction.get("review_status") == "approved" and extraction.get("status") == "completed":
         print("✓ Review completed!")
-        reviewed_data = extraction["reviewed_results"]
+        reviewed_data = (extraction["results"] if extraction.get("reviewed_results") is None else extraction["reviewed_results"])
     else:
         print("⏳ Still waiting for review...")
 ```
 
 ```javascript Node.js
 const response = await fetch(
-  'https://api.documind.cloud/api/v1/data/extractions?document_id=550e8400-e29b-41d4-a716-446655440000&limit=1',
+  'https://api.documind.cloud/api/v1/data/extractions?document_id=550e8400-e29b-41d4-a716-446655440000&limit=2',
   {
     headers: {
       'X-API-Key': process.env.API_KEY
@@ -238,9 +251,16 @@ const response = await fetch(
 const data = await response.json();
 
 if (data.items.length > 0) {
+  if (data.items.length !== 1) throw new Error("Missing or ambiguous document");
   const extraction = data.items[0];
-  
-  if (extraction.is_reviewed) {
+  if (["rejected", "expired"].includes(extraction.review_status)) {
+    throw new Error("Cancel this downstream work item; do not process results");
+  }
+  if (!["pending", "approved", "not_required"].includes(extraction.review_status)) {
+    throw new Error("Stop processing; check legacy policy or deployment compatibility");
+  }
+
+  if (extraction.review_status === "approved" && extraction.status === "completed") {
     console.log('✓ Review completed!');
     const reviewedData = extraction.reviewed_results;
   } else {
@@ -287,7 +307,7 @@ if (data.items.length > 0) {
   ],
   "total": 1,
   "skip": 0,
-  "limit": 1
+  "limit": 2
 }
 ```
 </ResponseExample>
@@ -297,7 +317,7 @@ if (data.items.length > 0) {
 Get all extractions waiting for review:
 
 ```bash cURL
-curl "https://api.documind.cloud/api/v1/data/extractions?needs_review=true&is_reviewed=false&sort_by=created_at&sort_order=desc&limit=50" \
+curl "https://api.documind.cloud/api/v1/data/extractions?review_status=pending&sort_by=created_at&sort_order=desc&limit=50" \
   -H 'X-API-Key: YOUR_API_KEY'
 ```
 
@@ -306,8 +326,7 @@ response = requests.get(
     "https://api.documind.cloud/api/v1/data/extractions",
     headers={"X-API-Key": API_KEY},
     params={
-        "needs_review": True,
-        "is_reviewed": False,
+        "review_status": "pending",
         "sort_by": "created_at",
         "sort_order": "desc",
         "limit": 50
@@ -336,7 +355,7 @@ response = requests.get(
     params={
         "created_after": yesterday,
         "status": "completed",
-        "limit": 100
+        "limit": 200
     }
 )
 
@@ -356,29 +375,29 @@ def get_all_extractions(api_key, filters=None):
     all_extractions = []
     skip = 0
     limit = 100
-    
+
     while True:
         params = {
             "skip": skip,
             "limit": limit,
             **(filters or {})
         }
-        
+
         response = requests.get(
             "https://api.documind.cloud/api/v1/data/extractions",
             headers={"X-API-Key": api_key},
             params=params
         )
-        
+
         data = response.json()
         all_extractions.extend(data["items"])
-        
+
         # Check if we've fetched everything
         if len(data["items"]) < limit:
             break
-        
+
         skip += limit
-    
+
     return all_extractions
 
 # Usage
@@ -399,7 +418,7 @@ print(f"Total completed extractions: {len(all_completed)}")
 # Query by document_id to check specific extraction
 params = {
     "document_id": document_id,
-    "limit": 1
+    "limit": 2
 }
 ```
 
@@ -408,8 +427,7 @@ params = {
 ```python
 # Get extractions waiting for human review
 params = {
-    "needs_review": True,
-    "is_reviewed": False,
+    "review_status": "pending",
     "sort_by": "created_at",
     "sort_order": "asc"  # Oldest first
 }
@@ -446,7 +464,7 @@ params = {
 params = {
     "organization_id": "org_uuid",
     "created_after": "2024-01-01T00:00:00Z",
-    "limit": 100
+    "limit": 200
 }
 ```
 
@@ -491,30 +509,30 @@ Server-side error:
 <AccordionGroup>
 <Accordion title="Use Specific Filters">
   Filter by `document_id` when possible for fastest queries:
-  
+
   ```python
   # ✓ Fast: Direct document lookup
-  params = {"document_id": doc_id, "limit": 1}
-  
+  params = {"document_id": doc_id, "limit": 2}
+
   # ✗ Slower: Scan all extractions
-  params = {"limit": 100}  # Then filter in code
+  params = {"limit": 200}  # Then filter in code
   ```
 </Accordion>
 
 <Accordion title="Implement Pagination Properly">
   Handle large result sets with pagination:
-  
+
   ```python
-  def fetch_page(skip=0, limit=100):
+  def fetch_page(skip=0, limit=200):
       response = requests.get(url, params={"skip": skip, "limit": limit})
       return response.json()
-  
+
   # Process in batches
   skip = 0
   while True:
       page = fetch_page(skip=skip)
       process_batch(page["items"])
-      
+
       if len(page["items"]) < limit:
           break
       skip += limit
@@ -523,21 +541,21 @@ Server-side error:
 
 <Accordion title="Cache Results When Appropriate">
   For dashboard views, cache results briefly:
-  
+
   ```python
   import time
-  
+
   cache = {}
   CACHE_TTL = 30  # seconds
-  
+
   def get_pending_reviews_cached(api_key):
       now = time.time()
-      
+
       if "pending" in cache:
           cached_data, timestamp = cache["pending"]
           if (now - timestamp) < CACHE_TTL:
               return cached_data
-      
+
       # Fetch fresh data
       data = fetch_pending_reviews(api_key)
       cache["pending"] = (data, now)
@@ -547,16 +565,16 @@ Server-side error:
 
 <Accordion title="Use Appropriate Limits">
   Choose limits based on use case:
-  
+
   ```python
   # Polling: Just need one result
-  params = {"document_id": doc_id, "limit": 1}
-  
+  params = {"document_id": doc_id, "limit": 2}
+
   # Dashboard: Show recent items
   params = {"sort_by": "created_at", "limit": 20}
-  
+
   # Batch export: Process all
-  params = {"limit": 100}  # Max per page
+  params = {"limit": 200}  # Max per page
   ```
 </Accordion>
 </AccordionGroup>

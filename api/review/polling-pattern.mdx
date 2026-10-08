@@ -1,678 +1,157 @@
 ---
 title: "Polling for Reviews"
-description: "Implement robust polling to detect when extractions are reviewed"
+description: "Wait for explicit decisions without treating rejection or missing state as approval"
 ---
 
-## Overview
-
-For automation pipelines, you need to detect when a human has reviewed and corrected an extraction. This guide shows how to implement efficient, robust polling to wait for the `is_reviewed` flag to become `true`.
-
-## The Review Lifecycle
-
-<Steps>
-<Step title="Extraction Flagged">
-  AI extraction completes with `needs_review = true` due to low-confidence fields.
-</Step>
-
-<Step title="Reviewer Notified">
-  Human reviewer sees the extraction in the pending reviews queue.
-</Step>
-
-<Step title="Review Completed">
-  Reviewer corrects fields and saves, setting `is_reviewed = true`.
-</Step>
-
-<Step title="Automation Resumes">
-  Your polling detects the change and retrieves `reviewed_results`.
-</Step>
-</Steps>
-
-## Basic Polling Implementation
-
-### Python Example
-
-```python
-import requests
-import time
-from typing import Optional, Dict
-
-def poll_for_review(
-    document_id: str,
-    api_key: str,
-    base_url: str = "https://api.documind.cloud/api/v1",
-    poll_interval: int = 10,
-    timeout: int = 300
-) -> Optional[Dict]:
-    """
-    Poll for extraction review completion.
-    
-    Args:
-        document_id: UUID of the document
-        api_key: Your API key
-        poll_interval: Seconds between polls (default: 10)
-        timeout: Maximum seconds to wait (default: 300/5min)
-    
-    Returns:
-        Reviewed results or None if timeout
-    """
-    headers = {"X-API-Key": api_key}
-    start_time = time.time()
-    poll_count = 0
-    
-    while (time.time() - start_time) < timeout:
-        poll_count += 1
-        
-        # Query extractions by document_id
-        response = requests.get(
-            f"{base_url}/data/extractions",
-            headers=headers,
-            params={
-                "document_id": document_id,
-                "limit": 1
-            }
-        )
-        
-        if response.status_code != 200:
-            print(f"⚠️  API error: {response.status_code}")
-            time.sleep(poll_interval)
-            continue
-        
-        data = response.json()
-        
-        if not data.get("items"):
-            print(f"⚠️  No extraction found for document {document_id}")
-            time.sleep(poll_interval)
-            continue
-        
-        extraction = data["items"][0]
-        
-        if extraction.get("is_reviewed"):
-            elapsed = time.time() - start_time
-            print(f"✓ Review completed after {elapsed:.1f}s ({poll_count} polls)")
-            return extraction.get("reviewed_results")
-        
-        print(f"⏳ Waiting for review (poll #{poll_count}, {poll_interval}s interval)...")
-        time.sleep(poll_interval)
-    
-    print(f"❌ Timeout after {timeout}s")
-    return None
-
-# Usage
-import requests
-
-API_KEY = "your_api_key"
-
-# Extract data first
-response = requests.post(
-    f"https://api.documind.cloud/api/v1/extract/{document_id}",
-    headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
-    json={"schema": schema, "prompt": "Extract data"}
-)
-result = response.json()
-
-if result["needs_review"]:
-    print("⚠️  Document needs human review - direct team to: https://app.documind.cloud/review")
-    
-    reviewed_data = poll_for_review(
-        document_id=result["document_id"],
-        api_key=API_KEY,
-        poll_interval=10,  # Check every 10 seconds
-        timeout=600        # Give up after 10 minutes
-    )
-    
-    if reviewed_data:
-        process_invoice(reviewed_data)
-    else:
-        handle_timeout(document_id)
-else:
-    process_invoice(result["results"])
-```
-
-### Node.js/TypeScript Example
-
-```typescript
-interface ReviewResult {
-  reviewed_results: Record<string, any>;
-  is_reviewed: boolean;
-}
-
-async function pollForReview(
-  documentId: string,
-  apiKey: string,
-  baseUrl: string = "https://api.documind.cloud/api/v1",
-  pollInterval: number = 10000,  // milliseconds
-  timeout: number = 300000       // milliseconds
-): Promise<Record<string, any> | null> {
-  const startTime = Date.now();
-  let pollCount = 0;
-  
-  while ((Date.now() - startTime) < timeout) {
-    pollCount++;
-    
-    try {
-      const response = await fetch(
-        `${baseUrl}/data/extractions?document_id=${documentId}&limit=1`,
-        {
-          headers: {
-            'X-API-Key': apiKey
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        console.warn(`⚠️  API error: ${response.status}`);
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        continue;
-      }
-      
-      const data = await response.json();
-      
-      if (!data.items || data.items.length === 0) {
-        console.warn(`⚠️  No extraction found for document ${documentId}`);
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        continue;
-      }
-      
-      const extraction = data.items[0];
-      
-      if (extraction.is_reviewed) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`✓ Review completed after ${elapsed.toFixed(1)}s (${pollCount} polls)`);
-        return extraction.reviewed_results;
-      }
-      
-      console.log(`⏳ Waiting for review (poll #${pollCount}, ${pollInterval/1000}s interval)...`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      
-    } catch (error) {
-      console.error(`⚠️  Poll error: ${error}`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    }
-  }
-  
-  console.error(`❌ Timeout after ${timeout/1000}s`);
-  return null;
-}
-
-// Usage
-const result = await extractData(documentId, schema);
-
-if (result.needs_review) {
-  console.log("⚠️  Document needs human review");
-  
-  const reviewedData = await pollForReview(
-    result.document_id,
-    process.env.API_KEY!,
-    "https://api.documind.cloud/api/v1",
-    10000,  // 10 seconds
-    600000  // 10 minutes
-  );
-  
-  if (reviewedData) {
-    await processInvoice(reviewedData);
-  } else {
-    await handleTimeout(documentId);
-  }
-} else {
-  await processInvoice(result.results);
-}
-```
-
-## Advanced Polling Strategies
-
-### Exponential Backoff
-
-Reduce API calls by increasing poll interval over time:
-
-```python
-import math
-
-def poll_with_backoff(
-    document_id: str,
-    api_key: str,
-    initial_interval: int = 5,
-    max_interval: int = 60,
-    timeout: int = 600
-) -> Optional[Dict]:
-    """Poll with exponential backoff."""
-    headers = {"X-API-Key": api_key}
-    start_time = time.time()
-    poll_count = 0
-    
-    while (time.time() - start_time) < timeout:
-        poll_count += 1
-        
-        # Check review status
-        response = requests.get(
-            "https://api.documind.cloud/api/v1/data/extractions",
-            headers=headers,
-            params={"document_id": document_id, "limit": 1}
-        )
-        
-        data = response.json()
-        if data["items"] and data["items"][0]["is_reviewed"]:
-            return data["items"][0]["reviewed_results"]
-        
-        # Calculate next interval with exponential backoff
-        interval = min(
-            initial_interval * (2 ** (poll_count - 1)),
-            max_interval
-        )
-        
-        print(f"⏳ Poll #{poll_count}, waiting {interval}s...")
-        time.sleep(interval)
-    
-    return None
-```
-
-<Tip>
-Exponential backoff is ideal when you don't know how long reviews will take. It starts fast for quick reviews but backs off for longer ones.
-</Tip>
-
-### Batch Polling
-
-Poll multiple documents efficiently:
-
-```python
-from typing import List, Dict
-
-def poll_batch_reviews(
-    document_ids: List[str],
-    api_key: str,
-    poll_interval: int = 15,
-    timeout: int = 600
-) -> Dict[str, Optional[Dict]]:
-    """
-    Poll multiple documents, returning results as they're reviewed.
-    
-    Returns:
-        Dictionary mapping document_id -> reviewed_results
-    """
-    headers = {"X-API-Key": api_key}
-    start_time = time.time()
-    remaining_ids = set(document_ids)
-    results = {}
-    
-    while remaining_ids and (time.time() - start_time) < timeout:
-        # Query all remaining documents
-        response = requests.get(
-            "https://api.documind.cloud/api/v1/data/extractions",
-            headers=headers,
-            params={
-                "needs_review": True,
-                "limit": len(remaining_ids)
-            }
-        )
-        
-        extractions = response.json()["items"]
-        
-        # Check each document
-        for extraction in extractions:
-            doc_id = extraction["document_id"]
-            
-            if doc_id in remaining_ids and extraction.get("is_reviewed"):
-                print(f"✓ Review completed for {doc_id}")
-                results[doc_id] = extraction["reviewed_results"]
-                remaining_ids.remove(doc_id)
-        
-        if remaining_ids:
-            print(f"⏳ Waiting for {len(remaining_ids)} documents...")
-            time.sleep(poll_interval)
-    
-    # Mark timed-out documents
-    for doc_id in remaining_ids:
-        results[doc_id] = None
-    
-    return results
-
-# Usage
-doc_ids = ["uuid1", "uuid2", "uuid3"]
-reviewed = poll_batch_reviews(doc_ids, API_KEY, poll_interval=15)
-
-for doc_id, data in reviewed.items():
-    if data:
-        process_document(doc_id, data)
-    else:
-        handle_timeout(doc_id)
-```
-
-### Concurrent Polling
-
-Use asyncio for efficient concurrent polling:
-
-```python
-import asyncio
-import aiohttp
-from typing import List, Optional
-
-async def async_poll_review(
-    session: aiohttp.ClientSession,
-    document_id: str,
-    api_key: str,
-    poll_interval: int = 10,
-    timeout: int = 300
-) -> Optional[Dict]:
-    """Async polling for a single document."""
-    headers = {"X-API-Key": api_key}
-    start_time = asyncio.get_event_loop().time()
-    
-    while (asyncio.get_event_loop().time() - start_time) < timeout:
-        try:
-            async with session.get(
-                f"https://api.documind.cloud/api/v1/data/extractions",
-                headers=headers,
-                params={"document_id": document_id, "limit": 1}
-            ) as response:
-                data = await response.json()
-                
-                if data["items"] and data["items"][0]["is_reviewed"]:
-                    return data["items"][0]["reviewed_results"]
-            
-            await asyncio.sleep(poll_interval)
-            
-        except Exception as e:
-            print(f"⚠️  Error polling {document_id}: {e}")
-            await asyncio.sleep(poll_interval)
-    
-    return None
-
-async def poll_multiple_documents(
-    document_ids: List[str],
-    api_key: str
-) -> Dict[str, Optional[Dict]]:
-    """Poll multiple documents concurrently."""
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            async_poll_review(session, doc_id, api_key)
-            for doc_id in document_ids
-        ]
-        
-        results = await asyncio.gather(*tasks)
-        return dict(zip(document_ids, results))
-
-# Usage
-document_ids = ["uuid1", "uuid2", "uuid3"]
-results = asyncio.run(poll_multiple_documents(document_ids, API_KEY))
-```
-
-## Best Practices
-
-<AccordionGroup>
-<Accordion title="Choose Appropriate Poll Intervals">
-  Balance responsiveness vs API usage:
-  
-  | Interval | Use Case | API Calls/Hour |
-  |----------|----------|----------------|
-  | 5s | Real-time processing | 720 |
-  | 10s | Standard automation | 360 |
-  | 30s | Batch processing | 120 |
-  | 60s | Low-priority jobs | 60 |
-  
-  <Tip>
-  10-15 second intervals work well for most automation scenarios.
-  </Tip>
-</Accordion>
-
-<Accordion title="Implement Proper Timeouts">
-  Set realistic timeouts based on your review SLA:
-  
-  ```python
-  # Production settings
-  REVIEW_TIMEOUT = {
-      "critical": 300,    # 5 minutes
-      "standard": 600,    # 10 minutes
-      "batch": 3600       # 1 hour
-  }
-  
-  timeout = REVIEW_TIMEOUT[priority]
-  ```
-</Accordion>
-
-<Accordion title="Handle Errors Gracefully">
-  Don't let transient errors stop your polling:
-  
-  ```python
-  try:
-      response = requests.get(url, headers=headers, timeout=30)
-      response.raise_for_status()
-  except requests.exceptions.Timeout:
-      print("⚠️  Request timeout, retrying...")
-      continue
-  except requests.exceptions.HTTPError as e:
-      if e.response.status_code >= 500:
-          print("⚠️  Server error, retrying...")
-          continue
-      else:
-          raise  # Don't retry 4xx errors
-  ```
-</Accordion>
-
-<Accordion title="Log Polling Activity">
-  Track polling for debugging and optimization:
-  
-  ```python
-  import logging
-  
-  logger = logging.getLogger(__name__)
-  
-  def poll_for_review(document_id, ...):
-      logger.info(f"Starting poll for {document_id}")
-      
-      while ...:
-          logger.debug(f"Poll attempt #{poll_count}")
-          
-          if is_reviewed:
-              logger.info(f"Review completed in {elapsed}s")
-              return result
-      
-      logger.warning(f"Poll timeout for {document_id}")
-      return None
-  ```
-</Accordion>
-</AccordionGroup>
-
-## Query Options
-
-### Filter by Document ID
-
-Most efficient for single-document polling:
-
-```bash
-GET /data/extractions?document_id=550e8400-e29b-41d4-a716-446655440000&limit=1
-```
-
-### Filter by Status
-
-For batch polling of pending reviews:
-
-```bash
-GET /data/extractions?needs_review=true&is_reviewed=false&limit=50
-```
-
-### Filter by Date Range
-
-Poll for documents extracted in a specific timeframe:
-
-```bash
-GET /data/extractions?created_after=2024-01-15T00:00:00Z&needs_review=true
-```
-
-## Monitoring & Alerting
-
-Track these metrics:
-
-```python
-class PollMetrics:
-    def __init__(self):
-        self.total_polls = 0
-        self.successful_reviews = 0
-        self.timeouts = 0
-        self.avg_review_time = []
-    
-    def record_success(self, review_time: float):
-        self.successful_reviews += 1
-        self.avg_review_time.append(review_time)
-    
-    def record_timeout(self):
-        self.timeouts += 1
-    
-    def get_stats(self):
-        return {
-            "success_rate": self.successful_reviews / self.total_polls * 100,
-            "timeout_rate": self.timeouts / self.total_polls * 100,
-            "avg_review_time": sum(self.avg_review_time) / len(self.avg_review_time)
-        }
-
-metrics = PollMetrics()
-
-# Use in polling
-if reviewed_data:
-    metrics.record_success(elapsed_time)
-else:
-    metrics.record_timeout()
-```
-
 <Warning>
-If timeout rate exceeds 20%, review your timeout settings or alert your review team about delays.
+Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. Missing or unknown `review_status` must stop automatic processing; it is not approval. Rejection and expiry are disabled by default across the deployment until customer integrations support terminal decisions.
 </Warning>
 
-## Complete Example
+## Poll each known document
 
-Here's a production-ready polling implementation:
+Read `GET /api/v1/review/{document_id}` for authoritative state and decision evidence. For approval, retrieve the exact extraction ID from the audit event. For a document without a decision, query extraction history by document ID and require one matching record. Keep the work item identity in your integration. A document disappearing from the pending list does not prove approval.
+
+| `review_status` | Integration action |
+| --- | --- |
+| `pending` | Wait and poll again. |
+| `approved` | Continue only when technical `status=completed`. Use `reviewed_results`; fall back to `results` only if reviewed results are null. An empty object is valid. |
+| `rejected`, `expired` | Cancel your downstream work item. Your integration performs cancellation. |
+| `not_required` | Use `results` only when technical `status` is `completed`. |
+| `legacy_reviewed` | Preserve your existing legacy policy. This is not a new explicit approval. |
+| Missing or unknown | Stop automatic processing and check deployment compatibility. |
+
+## Python example
+
+This function returns a named outcome. The caller must handle cancellation, legacy policy, and timeout separately. It never returns extraction data for a rejected, expired, or unknown state.
 
 ```python
-import requests
 import time
-import logging
-from typing import Optional, Dict
-from dataclasses import dataclass
+import requests
 
-@dataclass
-class PollConfig:
-    """Configuration for polling behavior."""
-    poll_interval: int = 10      # seconds
-    timeout: int = 600            # seconds
-    backoff: bool = False         # exponential backoff
-    max_interval: int = 60        # max backoff interval
-    
-class ReviewPoller:
-    """Robust review polling with logging and metrics."""
-    
-    def __init__(self, api_key: str, base_url: str = "https://api.documind.cloud/api/v1"):
-        self.api_key = api_key
-        self.base_url = base_url
-        self.logger = logging.getLogger(__name__)
-        self.headers = {"X-API-Key": api_key}
-    
-    def poll(
-        self,
-        document_id: str,
-        config: PollConfig = PollConfig()
-    ) -> Optional[Dict]:
-        """
-        Poll for review completion with configurable behavior.
-        
-        Returns reviewed_results or None if timeout.
-        """
-        start_time = time.time()
-        poll_count = 0
-        
-        self.logger.info(f"Starting poll for {document_id}")
-        
-        while (time.time() - start_time) < config.timeout:
-            poll_count += 1
-            
-            try:
-                # Query extraction status
-                response = requests.get(
-                    f"{self.base_url}/data/extractions",
-                    headers=self.headers,
-                    params={"document_id": document_id, "limit": 1},
-                    timeout=30
-                )
-                
-                response.raise_for_status()
-                data = response.json()
-                
-                if not data.get("items"):
-                    self.logger.warning(f"No extraction found: {document_id}")
-                    time.sleep(config.poll_interval)
-                    continue
-                
-                extraction = data["items"][0]
-                
-                if extraction.get("is_reviewed"):
-                    elapsed = time.time() - start_time
-                    self.logger.info(
-                        f"Review completed: {document_id} "
-                        f"({elapsed:.1f}s, {poll_count} polls)"
-                    )
-                    return extraction.get("reviewed_results")
-                
-                # Calculate next poll interval
-                if config.backoff:
-                    interval = min(
-                        config.poll_interval * (2 ** (poll_count - 1)),
-                        config.max_interval
-                    )
-                else:
-                    interval = config.poll_interval
-                
-                self.logger.debug(
-                    f"Poll #{poll_count}, waiting {interval}s..."
-                )
+def poll_for_review(document_id, api_key, project_id=None, timeout=600):
+    base = "https://api.documind.cloud/api/v1"
+    headers = {"X-API-Key": api_key}
+    if project_id:
+        headers["X-Project-ID"] = project_id
+    deadline = time.monotonic() + timeout
+    interval = 10
+    while time.monotonic() < deadline:
+        try:
+            response = requests.get(
+                f"{base}/review/{document_id}", headers=headers, timeout=30
+            )
+            if response.status_code == 429 or response.status_code >= 500:
                 time.sleep(interval)
-                
-            except requests.exceptions.RequestException as e:
-                self.logger.error(f"Poll error: {e}")
-                time.sleep(config.poll_interval)
-        
-        elapsed = time.time() - start_time
-        self.logger.warning(
-            f"Poll timeout: {document_id} ({elapsed:.1f}s, {poll_count} polls)"
-        )
-        return None
+                interval = min(interval * 2, 60)
+                continue
+            response.raise_for_status()
+        except (requests.Timeout, requests.ConnectionError):
+            time.sleep(interval)
+            interval = min(interval * 2, 60)
+            continue
+        review = response.json()
+        state = review.get("review_status")
+        if state in ("rejected", "expired"):
+            return {"outcome": "cancel", "review_status": state}
+        if state == "legacy_reviewed":
+            return {"outcome": "legacy_policy", "review_status": state}
+        if state == "approved":
+            extraction_id = (review.get("decision") or {}).get("extraction_id")
+            if not extraction_id:
+                raise RuntimeError("Approval evidence unavailable; stop processing")
+            response = requests.get(
+                f"{base}/data/extractions/{extraction_id}", headers=headers, timeout=30
+            )
+            response.raise_for_status()
+            extraction = response.json()
+            if extraction.get("document_id") != document_id or extraction.get("status") != "completed":
+                raise RuntimeError("Approved extraction not completed; stop processing")
+            results = extraction.get("reviewed_results")
+            if results is None:
+                results = extraction.get("results")
+            if not isinstance(results, dict):
+                raise RuntimeError("Approved results unavailable; stop processing")
+            return {"outcome": "continue", "results": results}
+        if state == "not_required":
+            response = requests.get(
+                f"{base}/data/extractions", headers=headers,
+                params={"document_id": document_id, "limit": 2}, timeout=30
+            )
+            response.raise_for_status()
+            items = response.json().get("items", [])
+            if len(items) != 1:
+                raise RuntimeError("Document missing or ambiguous; stop processing")
+            extraction = items[0]
+            if extraction.get("review_status") != "not_required":
+                raise RuntimeError("Review state changed; poll again before processing")
+            if extraction.get("status") == "completed":
+                return {"outcome": "continue", "results": extraction["results"]}
+            if extraction.get("status") == "failed":
+                raise RuntimeError("Extraction failed; stop processing")
+        elif state != "pending":
+            raise RuntimeError("Review state unavailable; check compatibility")
+        time.sleep(interval)
+    return {"outcome": "local_timeout"}
 
-# Usage
-poller = ReviewPoller(api_key=API_KEY)
-
-# Extract data
-response = requests.post(
-    f"https://api.documind.cloud/api/v1/extract/{document_id}",
-    headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
-    json={"schema": schema, "prompt": "Extract data"}
-)
-result = response.json()
-
-if result["needs_review"]:
-    reviewed = poller.poll(
-        document_id=result["document_id"],
-        config=PollConfig(
-            poll_interval=10,
-            timeout=600,
-            backoff=True
-        )
-    )
-    
-    if reviewed:
-        process_data(reviewed)
-    else:
-        handle_timeout(result["document_id"])
+# The API key comes from your application's secret configuration.
+# Dispatch explicitly. Do not use result truthiness as proof of approval.
+outcome = poll_for_review(document_id, api_key, project_id)
+if outcome["outcome"] == "continue":
+    process_document(outcome["results"])
+elif outcome["outcome"] == "cancel":
+    cancel_downstream_work_item(document_id)
+elif outcome["outcome"] == "legacy_policy":
+    apply_existing_legacy_policy(document_id)
+else:
+    alert_review_team(document_id)
 ```
 
-## Next Steps
+## Polling limits and failures
 
-<CardGroup cols={2}>
-<Card title="List Extractions" icon="list" href="/api/data/list-extractions">
-  Learn all query options for the extractions endpoint
-</Card>
+Use a bounded interval, such as 10?15 seconds, and back off on temporary failures. Respect `Retry-After` when supplied. Stop automatic processing on access errors or unknown state. For multiple documents, apply the same state dispatch to each known document; paginate history if querying a list. Do not poll only the pending queue to detect approval.
 
-<Card title="Understanding Reviews" icon="flag" href="/api/review/understanding-reviews">
-  Deep dive into how review flagging works
-</Card>
+A local timeout stops waiting in your process. It does not approve, reject, or expire the document. [Caller-triggered expiry](/api-reference/review-decision#caller-triggered-expiry) is a separate API-key request and requires pending age strictly greater than ten days. There is no scheduler or webhook in this contract.
 
-<Card title="Automation Patterns" icon="diagram-project" href="/api/patterns/automation-pipeline">
-  See complete automation workflow examples
-</Card>
-</CardGroup>
+For `409` on a decision request, refresh state and capabilities. Do not automatically submit a different decision. After an uncertain network failure, retry the exact decision payload with its original idempotency UUID and caller identity.
 
+## Node.js state dispatch
+
+Apply this dispatch after reading authoritative state and its stored extraction. `cancelWorkItem`, `processDocument`, and `applyLegacyPolicy` are functions owned by your integration.
+
+```javascript
+async function dispatchReview(review, extraction) {
+  switch (review.review_status) {
+    case "rejected":
+    case "expired":
+      return cancelWorkItem(review.document_id);
+    case "pending":
+      return { outcome: "wait" };
+    case "legacy_reviewed":
+      return applyLegacyPolicy(review.document_id);
+    case "approved": {
+      if (extraction.status !== "completed" ||
+          extraction.id !== review.decision?.extraction_id ||
+          extraction.document_id !== review.document_id) {
+        throw new Error("Approval does not match completed extraction");
+      }
+      const results = extraction.reviewed_results === null
+        ? extraction.results : extraction.reviewed_results;
+      if (results === undefined) throw new Error("Results unavailable");
+      return processDocument(results); // {} is a valid reviewed result.
+    }
+    case "not_required":
+      if (extraction.review_status !== "not_required" || extraction.status !== "completed") {
+        return { outcome: "wait_or_technical_failure" };
+      }
+      return processDocument(extraction.results);
+    default:
+      throw new Error("Review state unavailable; stop automatic processing");
+  }
+}
+```
+
+## Batch and concurrent polling
+
+Keep a set of document IDs that belong to your workflow. Poll each ID with the same dispatcher and remove it only after recording a named terminal outcome. Cancel rejected/expired work items separately from successful outputs. Bounded concurrency prevents a large batch from exhausting API limits. An empty page or an item absent from a pending queue is not a terminal outcome.
+
+Configure polling interval, local timeout, and maximum backoff per workflow. These settings control your process, not server expiry. Track approved, rejected, expired, legacy-policy, local-timeout, and technical-failure counts separately. Do not log API keys or document contents.

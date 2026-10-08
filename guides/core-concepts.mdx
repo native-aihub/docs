@@ -3,6 +3,9 @@ title: "Core Concepts"
 description: "Understanding Documind's key concepts and workflows"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## Documents and Extractions
 
 ### Documents
@@ -297,44 +300,13 @@ The `needs_review_metadata` contains flags matching your data structure:
 
 ### Review States
 
-An extraction goes through these states:
+Technical extraction status and review state are separate. `not_required` permits automated processing only after technical `status=completed`. `pending` waits. `approved` permits reviewed results. `rejected` and `expired` require your integration to cancel downstream work. `legacy_reviewed` preserves existing legacy handling. Missing or unknown state stops processing.
 
-```
-Initial Extraction
-↓
-needs_review = true?
-│
-├─ No  → Use results immediately
-│
-└─ Yes → Human reviews
-         ↓
-         PUT /review/{document_id}
-         ↓
-         is_reviewed = true
-         ↓
-         Use reviewed_results
-```
+See [Review Decisions](/api/review/understanding-reviews) for web actions and [safe polling](/api/review/polling-pattern) for explicit outcome dispatch.
 
 ### Polling for Review
 
-Poll the extractions endpoint to check review status:
-
-```python
-import time
-
-while True:
-    response = requests.get(
-        f"{BASE_URL}/data/extractions?document_id={document_id}",
-        headers=headers
-    )
-    extraction = response.json()["items"][0]
-    
-    if extraction["is_reviewed"]:
-        results = extraction["reviewed_results"]
-        break
-    
-    time.sleep(10)  # Wait 10 seconds before checking again
-```
+Use the [single state-aware polling helper](/api/review/polling-pattern). It stops on rejected/expired or unavailable states and checks stored technical status before returning usable results.
 
 ## Credits System
 
