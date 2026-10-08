@@ -9,7 +9,7 @@ Explicit review decisions require the review-state migration and a compatible ba
 
 ## Select the contract first
 
-Read `review_decision_managed` from the existing extraction response. False or absent preserves your existing legacy processing, polling, editing, and PUT integration. Do not switch that document because its project later opts in. True uses the managed helper below. The helper returns `legacy_policy` if the server says the document is unmanaged; it does not infer a managed approval.
+Read `review_decision_managed` from the existing extraction response. False or absent preserves your existing legacy processing, polling, editing, and PUT integration. Do not switch that document because its project later opts in. Only new requests explicitly sending `review_contract="decisions_v1"` can become managed, subject to project activation and trusted access. Omitted requests remain legacy, even when other robots in that project adopt the feature. True uses the managed helper below. The helper returns `legacy_policy` if the server says the document is unmanaged; it does not infer a managed approval.
 
 ## Poll each known document
 

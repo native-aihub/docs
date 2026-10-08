@@ -27,6 +27,7 @@ Requires `extractions:write` scope.
 | `prompt` | string | No | Custom extraction instructions |
 | `model` | string | No | Model for Basic mode: `qwen-3-vl`, `google-gemini-2.5-flash`, or `google-gemini-3-flash` |
 | `extraction_mode` | string | No | Set to `vlm` for VLM mode |
+| `review_contract` | string | No | `legacy` (default) or `decisions_v1`. Only adopting integrations request managed decisions explicitly; project activation and trusted access are also required |
 | `review_threshold` | number | No | Confidence threshold for review (0-100, default: 80) |
 | `include_citations` | boolean | No | Enable citation/source matching. Only available for Advanced mode |
 | `agentic_ocr` | boolean | No | Use the higher OCR tier for Advanced mode parsing |
@@ -40,6 +41,23 @@ Requires `extractions:write` scope.
 
 Citation matching is only available in Advanced mode. Do not set `model` or `extraction_mode` when `include_citations` is `true`.
 </Note>
+
+## Explicit review contract opt-in
+
+Omitting `review_contract`, or sending `"legacy"`, preserves the existing workflow even when the project and API-key owner have managed-review access. Existing web extraction requests omit this field and remain legacy.
+
+After validating your robot's terminal-state handling and confirming project/access prerequisites, send:
+
+```json
+{
+  "prompt": "Extract invoice fields",
+  "review_contract": "decisions_v1"
+}
+```
+
+The persisted `review_decision_managed` response field selects the document workflow. Request intent is not proof of enrollment. Sending an opt-in field on a document with an existing unmanaged extraction does not convert it; use a new document identity for a new managed processing attempt. [Review capabilities](/api-reference/review-capabilities) describe eligibility, not automatic enrollment.
+
+Synchronous extraction responses do not include technical `status`. Managed automation reads stored extraction status using the [polling helper](/api/review/polling-pattern).
 
 ## Response
 

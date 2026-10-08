@@ -12,7 +12,7 @@ Explicit review decisions require the review-state migration and a compatible ba
 ## Processing sequence
 
 1. Upload a document and keep its document ID with your work item.
-2. Extract data and inspect both technical `status` and `review_status`.
+2. Only an adopting integration sends `review_contract="decisions_v1"` for a new document, or `extraction_request.review_contract` for batch creation. Omitted or `"legacy"` requests stay legacy, even in an enabled project. Inspect the persisted snapshot, then stored technical `status` and managed `review_status`.
 3. Dispatch using the state table below.
 4. For pending documents, use the [safe polling example](/api/review/polling-pattern).
 5. Make downstream processing and cancellation idempotent in your integration.
@@ -40,4 +40,4 @@ Approval remains available while rejection and expiry are disabled. Capability v
 
 Choose a local waiting policy that fits your workflow. A local timeout does not change Documind state. If your policy requires expiry, an authorized API-key caller can submit it only after pending age is strictly greater than ten days. See [decision requests](/api-reference/review-decision).
 
-Before activation, confirm project opt-in, integration compatibility, and explicit managed-review access for each reviewer and API-key owner. Legacy membership permissions are unchanged and do not automatically grant the new feature.
+Before activation, confirm explicit per-request contract opt-in, project opt-in, integration compatibility, and explicit managed-review access for each reviewer and API-key owner. Legacy membership permissions are unchanged and do not automatically grant the new feature.
