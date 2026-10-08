@@ -3,7 +3,7 @@ title: "Quick Start"
 description: "Extract data from your first document in 5 minutes"
 ---
 
-<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+<Warning>Use `review_decision_managed` to select the workflow. False or absent preserves your existing legacy endpoints, booleans, and review behavior. True uses explicit review states, terminal cancellation, and read-only decisions. For managed documents, missing or unknown state stops processing. See the [state dispatcher](/api/review/polling-pattern).</Warning>
 
 
 ## Prerequisites

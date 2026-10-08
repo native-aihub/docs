@@ -4,8 +4,12 @@ description: "Wait for explicit decisions without treating rejection or missing 
 ---
 
 <Warning>
-Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. Missing or unknown `review_status` must stop automatic processing; it is not approval. Rejection and expiry are disabled by default across the deployment until customer integrations support terminal decisions.
+Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. For managed documents, missing or unknown `review_status` stops automatic processing. Projects explicitly opt in after customer integrations support terminal decisions. False or absent `review_decision_managed` keeps existing legacy behavior; it never enrolls a document implicitly.
 </Warning>
+
+## Select the contract first
+
+Read `review_decision_managed` from the existing extraction response. False or absent preserves your existing legacy processing, polling, editing, and PUT integration. Do not switch that document because its project later opts in. True uses the managed helper below. The helper returns `legacy_policy` if the server says the document is unmanaged; it does not infer a managed approval.
 
 ## Poll each known document
 
@@ -18,7 +22,7 @@ Read `GET /api/v1/review/{document_id}` for authoritative state and decision evi
 | `rejected`, `expired` | Cancel your downstream work item. Your integration performs cancellation. |
 | `not_required` | Use `results` only when technical `status` is `completed`. |
 | `legacy_reviewed` | Preserve your existing legacy policy. This is not a new explicit approval. |
-| Missing or unknown | Stop automatic processing and check deployment compatibility. |
+| Missing or unknown (managed documents) | Stop automatic processing and check deployment compatibility. |
 
 ## Python example
 
@@ -50,6 +54,8 @@ def poll_for_review(document_id, api_key, project_id=None, timeout=600):
             interval = min(interval * 2, 60)
             continue
         review = response.json()
+        if review.get("review_decision_managed") is not True:
+            return {"outcome": "legacy_policy"}
         state = review.get("review_status")
         if state in ("rejected", "expired"):
             return {"outcome": "cancel", "review_status": state}
@@ -120,6 +126,9 @@ Apply this dispatch after reading authoritative state and its stored extraction.
 
 ```javascript
 async function dispatchReview(review, extraction) {
+  if (extraction.review_decision_managed !== true) {
+    return applyLegacyPolicy(extraction.document_id);
+  }
   switch (review.review_status) {
     case "rejected":
     case "expired":

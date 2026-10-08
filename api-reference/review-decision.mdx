@@ -7,7 +7,7 @@ description: "Approve, reject, or expire a pending document with reliable retry 
 POST /api/v1/review/{document_id}/decision
 ```
 
-Requires `extractions:write` and document organization/project access. Use existing authentication headers and `X-Project-ID` when using an active project. Check [capabilities](/api-reference/review-capabilities) first. Only `pending` can transition to approved, rejected, or expired. Terminal decisions cannot be changed or reopened.
+Requires `extractions:write` and document organization/project access. Use existing authentication headers and `X-Project-ID` when using an active project. Check [capabilities](/api-reference/review-capabilities) first. Only documents with persisted `review_decision_managed=true` use this endpoint. Unmanaged documents use the existing [PUT approval/edit endpoint](/api-reference/update-review), even if their project now opts in. Only managed `pending` can transition to approved, rejected, or expired. Terminal decisions cannot be changed or reopened.
 
 | Field | Requirement |
 | --- | --- |
@@ -32,7 +32,7 @@ Reasons: `wrong_document`, `duplicate_document`, `out_of_scope`, `other`. Omit `
 
 ## Approve
 
-Approval requires technical `status=completed`.
+Approval requires technical `status=completed`. It remains available for already-managed pending documents when enrollment/rejection/expiry are disabled.
 
 ```json
 {
@@ -55,7 +55,7 @@ An authorized API-key caller can expire a document that has been pending for str
 }
 ```
 
-Omit `reviewed_results`. Historical pending records start their age at migration time because their original request age is unknown.
+Omit `reviewed_results`. Historical unmanaged pending records are not enrolled or eligible for this expiry API. Managed pending age uses its recorded UTC review request time.
 
 ## Response and retries
 

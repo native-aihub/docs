@@ -3,11 +3,17 @@ title: "Review Decisions"
 description: "Approve or reject a document and consume its explicit review state"
 ---
 
-Review decisions are separate from technical extraction `status`. A pending document can receive one final decision: approval, rejection, or expiry.
+Managed review decisions are separate from technical extraction `status`. A pending document can receive one final decision: approval, rejection, or expiry.
 
 <Warning>
-Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. Missing or unknown `review_status` must stop automatic processing; it is not approval. Rejection and expiry are disabled by default across the deployment until customer integrations support terminal decisions.
+Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. For managed documents, missing or unknown `review_status` stops automatic processing. Projects explicitly opt in after customer integrations support terminal decisions. False or absent `review_decision_managed` keeps existing legacy behavior; it never enrolls a document implicitly.
 </Warning>
+
+## Choose the document workflow
+
+`review_decision_managed` is the persisted document snapshot. False or absent preserves legacy approval, result editing, reapproval, and reflagging through existing endpoints. True uses immutable managed decisions. Enabling a project does not convert historical or already-unmanaged documents. There is no automatic backfill enrollment.
+
+The state table and terminal protections below apply only to managed documents. Historical `legacy_reviewed` on an unmanaged document does not impose managed read-only behavior.
 
 ## Review in the web app
 
@@ -17,7 +23,7 @@ Explicit review decisions require the review-state migration and a compatible ba
 4. Add a comment if the reason is Other. Comments accept up to 2000 characters.
 5. Select **Reject document**, or select **Cancel** to return without a decision.
 
-A rejected document leaves the pending queue and remains in History. History shows its decision state, actor identity, time, reason, and comment. Terminal documents are read-only. Rejection does not delete the document or refund credits. Documind records the decision; your connected process reads it and performs its own cancellation.
+A rejected document leaves the pending queue and remains in History. History shows its decision state, actor identity, time, reason, and comment. Managed terminal documents are read-only. Unmanaged documents keep their existing approval/editor behavior. Rejection does not delete the document or refund credits. Documind records the decision; your connected process reads it and performs its own cancellation.
 
 ## Integration state contract
 
@@ -28,11 +34,11 @@ A rejected document leaves the pending queue and remains in History. History sho
 | `rejected`, `expired` | Cancel your downstream work item. Your integration performs cancellation. |
 | `not_required` | Use `results` only when technical `status` is `completed`. |
 | `legacy_reviewed` | Preserve your existing legacy policy. This is not a new explicit approval. |
-| Missing or unknown | Stop automatic processing and check deployment compatibility. |
+| Missing or unknown (managed documents) | Stop automatic processing and check deployment compatibility. |
 
-Approved, rejected, expired, and legacy-reviewed records cannot be reopened or overwritten. A new processing attempt requires a new document identity.
+Managed approved, rejected, expired, and legacy-reviewed records cannot be reopened or overwritten. A new processing attempt requires a new document identity.
 
-`needs_review` and `is_reviewed` remain for compatibility. Rejected and expired records keep `needs_review=true` and `is_reviewed=false`. Use `review_status=pending` to query the pending queue. Do not infer approval from these booleans, the presence of results, a missing record, or a polling timeout.
+`needs_review` and `is_reviewed` remain for compatibility. Rejected and expired records keep `needs_review=true` and `is_reviewed=false`. Use `review_status=pending` to query the pending queue. For managed documents, do not infer approval from these booleans, the presence of results, a missing record, or a polling timeout.
 
 ## Read and decide through the API
 
@@ -44,4 +50,4 @@ Reads require `extractions:read`. Decisions require `extractions:write` and acce
 
 ## Historical records
 
-Migration maps previously reviewed records to `legacy_reviewed`; it does not create a new approval event. Historical pending records start their pending age at migration time because their original review request time is unknown. Expiry therefore uses the new `review_requested_at`, not `updated_at`.
+Migration keeps historical records unmanaged. Review metadata may label previously reviewed records `legacy_reviewed`; it does not create a new approval event or remove legacy editing/reapproval. Unmanaged historical records are not eligible for managed expiry. Managed expiry uses the recorded UTC `review_requested_at`, not mutable `updated_at`.
