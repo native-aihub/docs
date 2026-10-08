@@ -3,7 +3,7 @@ title: "Invoice Processing Tutorial"
 description: "Complete guide to extracting invoice data at scale"
 ---
 
-<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+<Warning>Use `review_decision_managed` to select the workflow. False or absent preserves your existing legacy endpoints, booleans, and review behavior. True uses explicit review states, terminal cancellation, and read-only decisions. For managed documents, missing or unknown state stops processing. See the [state dispatcher](/api/review/polling-pattern).</Warning>
 
 
 ## Overview
@@ -259,11 +259,13 @@ class InvoiceProcessor:
                 if len(data["items"]) != 1:
                     raise RuntimeError("Missing or ambiguous document; stop processing")
                 extraction = data["items"][0]
-                if extraction.get("review_status") in ("rejected", "expired"):
+                if extraction.get("review_decision_managed") is True and extraction.get("review_status") in ("rejected", "expired"):
                     raise RuntimeError("Cancel this downstream work item; do not process results")
-                if extraction.get("review_status") not in ("pending", "approved", "not_required"):
+                if extraction.get("review_decision_managed") is True and extraction.get("review_status") not in ("pending", "approved", "not_required"):
                     raise RuntimeError("Stop processing; check legacy policy or deployment compatibility")
 
+                if extraction.get("review_decision_managed") is not True and extraction["is_reviewed"]:
+                    return extraction["reviewed_results"]
                 if extraction.get("review_status") == "not_required" and extraction.get("status") == "completed":
                     return extraction["results"]
                 if extraction.get("review_status") == "approved" and extraction.get("status") == "completed":
@@ -287,6 +289,10 @@ class InvoiceProcessor:
         # Extract
         result = self.extract_invoice(document_id, mode=mode)
 
+        # Unmanaged documents retain the original automatic path.
+        if result.get("review_decision_managed") is not True and not result["needs_review"]:
+            return {"document_id": document_id, "data": result["results"],
+                    "needs_review": result["needs_review"], "is_reviewed": result.get("is_reviewed", False)}
         # Handle review if needed
         logger.info("Invoice flagged for review. Waiting...")
         reviewed_results = self.wait_for_review(document_id)
@@ -404,6 +410,9 @@ class InvoiceProcessor {
       if (response.data.items.length === 1) {
         const extraction = response.data.items[0];
 
+        if (extraction.review_decision_managed !== true && extraction.is_reviewed) {
+          return extraction.reviewed_results;
+        }
         if (extraction.review_status === "not_required" && extraction.status === "completed") {
           return extraction.results;
         }
@@ -423,6 +432,10 @@ class InvoiceProcessor {
   async processInvoice(filePath, mode = 'basic') {
     const documentId = await this.uploadInvoice(filePath);
     const result = await this.extractInvoice(documentId, mode);
+    if (result.review_decision_managed !== true && !result.needs_review) {
+      return {document_id: documentId, data: result.results,
+        needs_review: result.needs_review, is_reviewed: result.is_reviewed || false};
+    }
 
     { // Confirm stored state; synchronous extraction has no technical status field.
       console.log('Invoice flagged for review. Waiting...');

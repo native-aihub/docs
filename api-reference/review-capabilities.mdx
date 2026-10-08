@@ -1,18 +1,22 @@
 ---
 title: "Review Capabilities"
-description: "Check deployment support before submitting review decisions"
+description: "Check active-project opt-in and decision support"
 ---
 
 ```http
 GET /api/v1/review-capabilities
 ```
 
-Use your existing authentication headers. The response describes deployment-wide feature support, not your permission to decide a particular document.
+Use your existing authentication headers and `X-Project-ID` for the active project. Capabilities are scoped to that project. They are not a document permission check or a document enrollment flag.
 
 ```json
-{"approved":true,"rejected":false,"expired":false,"expiry_minimum_days":10,"contract_version":1}
+{"approved":true,"rejected":false,"expired":false,"project_enabled":false,"expiry_minimum_days":10,"contract_version":2}
 ```
 
-Rejection and expiry are disabled by default. Approval remains available. The web app hides Reject when `rejected` is false. Customer integrations must support explicit terminal states before rejection or expiry is enabled.
+The server explicitly allows selected projects to enroll new review documents. The global gate and project allowlist are off/empty by default. Both must permit the active project, and the caller must have a trusted project-specific review access grant, for `project_enabled`, `rejected`, and `expired` to be true. Authorized global administrators retain their access exception. Legacy project membership does not automatically grant managed review access. Reviewers and API-key owners require explicit access before activation. Organization access and write scope still apply.
 
-These routes and metadata require the review-state migration and compatible backend deployment. An unavailable route or missing state does not imply approval. Documentation publication does not confirm migration completion or enablement. Check this endpoint against your target deployment.
+Each extraction persists `review_decision_managed` when it enters its review workflow. False or absent keeps the legacy workflow. True uses the managed decision contract. Existing documents are not enrolled when a project opts in. The web app never shows Reject for an unmanaged document, even in an enabled project.
+
+`approved=true` means the managed approval API remains available for documents already enrolled. Disabling the gate or removing a project from the allowlist stops new enrollment, rejection, and expiry. It does not remove a managed document's terminal protection or its pending approval path, subject to trusted project access. Unmanaged documents continue to use legacy PUT approval/edit behavior.
+
+Routes and metadata require the compatible migration/backend. Publishing docs does not apply migration or enable a project. Confirm customer integration compatibility before project opt-in.

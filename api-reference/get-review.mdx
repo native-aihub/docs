@@ -12,6 +12,7 @@ Requires `extractions:read` and access to the document's organization and projec
 ```json
 {
   "document_id": "44444444-4444-4444-4444-444444444444",
+  "review_decision_managed": true,
   "review_status": "rejected",
   "review_requested_at": "2026-10-07T08:00:00Z",
   "review_decided_at": "2026-10-07T08:02:00Z",
@@ -38,8 +39,10 @@ Requires `extractions:read` and access to the document's organization and projec
 
 For pending documents, decision fields and `decision` are null. Extraction history, extraction detail, synchronous extraction responses, batch items, and pending summaries also expose review state and metadata. Read this endpoint for the full decision evidence.
 
-Use `GET /api/v1/data/extractions?review_status=pending` for the pending queue. Rejected and expired records retain `needs_review=true` and `is_reviewed=false`; boolean filters do not identify the pending queue.
+Use `GET /api/v1/data/extractions?review_status=pending` for the pending queue. Rejected and expired records retain `needs_review=true` and `is_reviewed=false`; boolean filters alone do not identify the combined managed queue. The `review_status=pending` query also includes unmanaged legacy pending booleans. Existing legacy boolean queries remain supported.
 
 See [availability](/api-reference/review-capabilities) and [state dispatch](/api/review/polling-pattern). This response records the Documind decision. It does not confirm that your downstream system canceled its work item.
 
 If multiple extraction records share a document identity, this route returns `409`, including records in different projects. Do not automatically choose one record or infer approval from a project-filtered list. Resolve the identity before deciding.
+
+`review_decision_managed` selects the contract. False or absent retains legacy behavior; the explicit state is descriptive and does not impose managed terminal protections. True selects immutable decisions. Existing clients can keep their original extraction/detail endpoints for unmanaged documents; they do not need to adopt this endpoint.

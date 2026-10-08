@@ -48,8 +48,10 @@ response = requests.put(
 )
 ```
 
-## Approval compatibility
+## Workflow compatibility
 
-This endpoint is a guarded approval adapter. It accepts only a pending document with completed technical processing and the caller's organization/project write access. It cannot approve rejected, expired, legacy-reviewed, or not-required records, or bypass state checks.
+For `review_decision_managed=false` or an absent snapshot, this endpoint preserves the existing legacy approval and result-editing workflow, including reapproval of previously reviewed results. Legacy review booleans and reflagging semantics remain unchanged. It does not enroll a document into managed decisions or create a managed decision event.
 
-For client-managed retry identities, use [Submit Review Decision](/api-reference/review-decision) with `decision=approved`, `reason_code=review_approved`, and a UUID idempotency key. The legacy PUT generates its own request identity; a blind retry can return a conflict after the original approval succeeds.
+For `review_decision_managed=true`, this is a guarded approval adapter. It accepts only managed pending documents with completed technical processing and authorized write scope. It cannot reopen or overwrite a managed terminal decision.
+
+Managed clients that need reliable retry identities should use [Submit Review Decision](/api-reference/review-decision). Unmanaged clients keep their existing PUT integration.

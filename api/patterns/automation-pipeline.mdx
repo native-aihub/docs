@@ -6,7 +6,7 @@ description: "Route extraction and review outcomes safely in customer-owned auto
 Your integration owns downstream processing and cancellation. Documind provides extraction results and explicit review decisions.
 
 <Warning>
-Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. Missing or unknown `review_status` must stop automatic processing; it is not approval. Rejection and expiry are disabled by default across the deployment until customer integrations support terminal decisions.
+Explicit review decisions require the review-state migration and a compatible backend deployment. Documentation publication does not enable the feature. Check [review capabilities](/api-reference/review-capabilities) before integrating. For managed documents, missing or unknown `review_status` stops automatic processing. Projects explicitly opt in after customer integrations support terminal decisions. False or absent `review_decision_managed` keeps existing legacy behavior; it never enrolls a document implicitly.
 </Warning>
 
 ## Processing sequence
@@ -24,7 +24,7 @@ Explicit review decisions require the review-state migration and a compatible ba
 | `rejected`, `expired` | Cancel your downstream work item. Your integration performs cancellation. |
 | `not_required` | Use `results` only when technical `status` is `completed`. |
 | `legacy_reviewed` | Preserve your existing legacy policy. This is not a new explicit approval. |
-| Missing or unknown | Stop automatic processing and check deployment compatibility. |
+| Missing or unknown (managed documents) | Stop automatic processing and check deployment compatibility. |
 
 Keep rejected or expired work items separate from approved output. Do not archive them as successfully processed. An API error, empty history response, or local timeout must not send raw extraction results to your downstream system.
 
@@ -34,8 +34,10 @@ Use the same authorized API key and active project when extracting, polling, and
 
 ## Availability and customer rollout
 
-Approval remains available while rejection and expiry are disabled. Capability values apply to the deployment; they are not per-document permission checks. Confirm that each affected customer integration handles rejected and expired states before requesting enablement. A capability response does not prove downstream cancellation occurred.
+Approval remains available while rejection and expiry are disabled. Capability values apply to the active project; they are not per-document enrollment or permission checks. Use the persisted `review_decision_managed` snapshot, not current project enablement, to select the workflow. Existing unmanaged work keeps legacy behavior. Confirm that each affected customer integration handles rejected and expired states before requesting enablement. A capability response does not prove downstream cancellation occurred.
 
 ## Expiry policy
 
 Choose a local waiting policy that fits your workflow. A local timeout does not change Documind state. If your policy requires expiry, an authorized API-key caller can submit it only after pending age is strictly greater than ten days. See [decision requests](/api-reference/review-decision).
+
+Before activation, confirm project opt-in, integration compatibility, and explicit managed-review access for each reviewer and API-key owner. Legacy membership permissions are unchanged and do not automatically grant the new feature.

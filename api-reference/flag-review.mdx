@@ -31,4 +31,4 @@ PUT https://api.documind.cloud/api/v1/data/extractions/{extraction_id}/flag-for-
 }
 ```
 
-Terminal decisions cannot be cleared or reopened by flagging. A new intentional processing attempt requires a new document identity. See [Review Decisions](/api/review/understanding-reviews).
+Managed terminal decisions cannot be cleared or reopened by flagging. Unmanaged documents keep the existing legacy reflagging workflow, even when their project later opts in. A new intentional processing attempt requires a new document identity. See [Review Decisions](/api/review/understanding-reviews).

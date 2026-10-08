@@ -48,4 +48,4 @@ pending_reviews = response.json()
 
 Use `GET /api/v1/data/extractions/{extraction_id}` for full extraction details.
 
-Only `review_status=pending` records belong to this queue. A missing queue item is not proof of approval; read its [current state](/api-reference/get-review). Rejected and expired documents remain in history.
+This queue includes managed `review_status=pending` documents and unmanaged legacy `needs_review=true,is_reviewed=false` documents. The `review_status=pending` history filter provides this same combined queue with accurate pagination. A missing queue item is not proof of approval; read its [current state](/api-reference/get-review). Rejected and expired documents remain in history.
