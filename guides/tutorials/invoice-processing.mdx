@@ -294,7 +294,6 @@ class InvoiceProcessor:
             raise RuntimeError("No approved review results; stop processing")
         if reviewed_results is not None:
             result["results"] = reviewed_results
-            result["is_reviewed"] = True
 
         return {
             "document_id": document_id,
@@ -397,11 +396,12 @@ class InvoiceProcessor {
         `${this.baseUrl}/data/extractions`,
         {
           headers: this.headers,
-          params: { document_id: documentId }
+          params: { document_id: documentId, limit: 2 }
         }
       );
 
-      if (response.data.items.length > 0) {
+      if (response.data.items.length !== 1) throw new Error("Missing or ambiguous document");
+      if (response.data.items.length === 1) {
         const extraction = response.data.items[0];
 
         if (extraction.review_status === "not_required" && extraction.status === "completed") {
