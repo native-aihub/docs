@@ -15,8 +15,12 @@ Use your existing authentication headers and `X-Project-ID` for the active proje
 
 The server explicitly allows selected projects to enroll new review documents. The global gate and project allowlist are off/empty by default. Both must permit the active project, and the caller must have a trusted project-specific review access grant, for `project_enabled`, `rejected`, and `expired` to be true. Authorized global administrators retain their access exception. Legacy project membership does not automatically grant managed review access. Reviewers and API-key owners require explicit access before activation. Organization access and write scope still apply.
 
-Each extraction persists `review_decision_managed` when it enters its review workflow. False or absent keeps the legacy workflow. True uses the managed decision contract. Existing documents are not enrolled when a project opts in. The web app never shows Reject for an unmanaged document, even in an enabled project.
+New extraction requests must explicitly include `review_contract="decisions_v1"` in addition to project activation and trusted caller access. Omitted or `"legacy"` requests always keep legacy behavior, including another robot using the same project and API-key owner. Capabilities alone never opt in a request.
+
+Each new extraction persists its `review_decision_managed` snapshot. False or absent keeps the legacy workflow. True uses the managed decision contract. Existing documents are not enrolled when a project opts in or a later request adds the field. Reflagging does not enroll them. Existing web extraction requests stay legacy because they omit the field. The web app never shows Reject for an unmanaged document, even in an enabled project.
 
 `approved=true` means the managed approval API remains available for documents already enrolled. Disabling the gate or removing a project from the allowlist stops new enrollment, rejection, and expiry. It does not remove a managed document's terminal protection or its pending approval path, subject to trusted project access. Unmanaged documents continue to use legacy PUT approval/edit behavior.
 
 Routes and metadata require the compatible migration/backend. Publishing docs does not apply migration or enable a project. Confirm customer integration compatibility before project opt-in.
+
+See [single extraction opt-in](/api-reference/extract#explicit-review-contract-opt-in) and [batch opt-in](/api-reference/batch-extract#managed-review-opt-in) for request examples.

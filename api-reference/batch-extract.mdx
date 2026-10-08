@@ -20,11 +20,27 @@ Use this endpoint for RPA or backend clients that need to submit several extract
 | `document_ids` | string[] | Yes | Uploaded document IDs to extract. Must contain at least one UUID |
 | `extraction_request` | object | Yes | Same extraction options used by `POST /extract/{document_id}` |
 
-`extraction_request` supports `prompt`, `schema`, `model`, `extraction_mode`, `review_threshold`, `include_citations`, `agentic_ocr`, and `confidence_instruction`. Prompt-only batch requests are accepted. If `schema` is provided, pass the extraction schema directly in the `schema` field with top-level `named_entities` and `required` keys.
+`extraction_request` supports `review_contract`, `prompt`, `schema`, `model`, `extraction_mode`, `review_threshold`, `include_citations`, `agentic_ocr`, and `confidence_instruction`. Prompt-only batch requests are accepted. If `schema` is provided, pass the extraction schema directly in the `schema` field with top-level `named_entities` and `required` keys.
 
 <Note>
 `include_citations` is only valid for Advanced extraction. Do not set `model` or `extraction_mode: "vlm"` when `include_citations` is `true`.
 </Note>
+
+### Managed review opt-in
+
+Set `extraction_request.review_contract` to `"decisions_v1"` only in an adopting integration. It is nested inside `extraction_request`, not at the batch body's top level. Omitting it, or using `"legacy"`, keeps existing robot behavior even in an enabled project with the same API-key owner.
+
+```json
+{
+  "document_ids": ["11111111-1111-1111-1111-111111111111"],
+  "extraction_request": {
+    "prompt": "Extract invoice fields",
+    "review_contract": "decisions_v1"
+  }
+}
+```
+
+Project activation and trusted caller access are also required. Existing document snapshots never convert on a retry or a new batch request. Inspect `review_decision_managed` in stored extraction results to select the contract. Managed decision state remains separate from batch technical completion; a completed batch does not approve its documents. See [state-aware polling](/api/review/polling-pattern).
 
 ### Request Example
 

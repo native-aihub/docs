@@ -15,6 +15,12 @@ Explicit review decisions require the review-state migration and a compatible ba
 
 The state table and terminal protections below apply only to managed documents. Historical `legacy_reviewed` on an unmanaged document does not impose managed read-only behavior.
 
+## Opt in only the adopting integration
+
+An adopting robot sends `review_contract="decisions_v1"` in each new extraction request. Batch requests use `extraction_request.review_contract`. This explicit request field, project activation, and trusted reviewer/API-key-owner access are all prerequisites.
+
+Omitted or `"legacy"` requests keep the old workflow even in the same enabled project with the same API-key owner. Existing web extraction calls remain legacy. A later opt-in request or reflag never changes an existing document snapshot. Verify the response snapshot before choosing the managed decision flow. See [request examples](/api-reference/extract#explicit-review-contract-opt-in).
+
 ## Review in the web app
 
 1. Open **Review** and select a pending document.
