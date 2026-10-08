@@ -1,0 +1,18 @@
+---
+title: "Review Capabilities"
+description: "Check deployment support before submitting review decisions"
+---
+
+```http
+GET /api/v1/review-capabilities
+```
+
+Use your existing authentication headers. The response describes deployment-wide feature support, not your permission to decide a particular document.
+
+```json
+{"approved":true,"rejected":false,"expired":false,"expiry_minimum_days":10,"contract_version":1}
+```
+
+Rejection and expiry are disabled by default. Approval remains available. The web app hides Reject when `rejected` is false. Customer integrations must support explicit terminal states before rejection or expiry is enabled.
+
+These routes and metadata require the review-state migration and compatible backend deployment. An unavailable route or missing state does not imply approval. Documentation publication does not confirm migration completion or enablement. Check this endpoint against your target deployment.

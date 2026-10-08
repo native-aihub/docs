@@ -143,7 +143,7 @@ def normalize_checkbox_values(data: dict) -> dict:
                     data["checkboxes"][key] = True
                 elif value_lower in ["no", "n", "false", "unchecked", ""]:
                     data["checkboxes"][key] = False
-    
+
     return data
 ```
 
@@ -153,18 +153,18 @@ def normalize_checkbox_values(data: dict) -> dict:
 def validate_form_data(data: dict) -> tuple[bool, list]:
     """Validate extracted form data"""
     errors = []
-    
+
     # Check required fields
     if "applicant" not in data:
         errors.append("Missing applicant information")
-    
+
     if "contact" not in data:
         errors.append("Missing contact information")
-    
+
     # Validate signature
     if not data.get("signature_present"):
         errors.append("Form is not signed")
-    
+
     return len(errors) == 0, errors
 ```
 
@@ -176,7 +176,7 @@ class FormProcessor:
         self.api_key = api_key
         self.base_url = "https://api.documind.cloud/api/v1"
         self.headers = {"X-API-Key": api_key}
-    
+
     def process_form(self, file_path: str) -> dict:
         """Process form with validation"""
         # Upload
@@ -188,7 +188,7 @@ class FormProcessor:
             )
         response.raise_for_status()
         document_id = response.json()[0]
-        
+
         # Extract using Advanced mode for better accuracy on forms
         response = requests.post(
             f"{self.base_url}/extract/{document_id}",
@@ -201,13 +201,13 @@ class FormProcessor:
         )
         response.raise_for_status()
         result = response.json()
-        
+
         # Normalize checkbox values
         data = normalize_checkbox_values(result["results"])
-        
+
         # Validate
         is_valid, errors = validate_form_data(data)
-        
+
         if not is_valid:
             logger.warning(f"Form validation errors: {errors}")
             # Flag for manual review
@@ -218,12 +218,13 @@ class FormProcessor:
                 "errors": errors,
                 "requires_manual_review": True
             }
-        
+
         return {
             "document_id": document_id,
             "data": data,
             "valid": True,
-            "requires_manual_review": result.get("needs_review", False)
+            "requires_manual_review": result.get("review_status") == "pending",
+            "review_status": result.get("review_status")  # Inspect only; dispatch stored state before automation.
         }
 
 # Usage

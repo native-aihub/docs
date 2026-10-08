@@ -3,6 +3,9 @@ title: "Quick Start"
 description: "Extract your first document in 5 minutes"
 ---
 
+<Warning>Use explicit `review_status` for automation. Rejected and expired documents require customer-owned cancellation. Missing or unknown state must stop processing. Legacy-reviewed records require your existing legacy policy. Older short examples below demonstrate extraction or polling only; use the [complete state dispatcher](/api/review/polling-pattern) for production integration.</Warning>
+
+
 ## Overview
 
 This guide will walk you through extracting data from a document using Documind in just a few minutes.
@@ -209,9 +212,9 @@ The response contains the extracted data:
 ```
 
 <Tip>
-**When `needs_review` is `false`**: Use the results immediately in your workflow.
+**When `review_status` is `not_required` and technical `status` is `completed`**: Use `results` in your workflow.
 
-**When `needs_review` is `true`**: Wait for human review before processing. See [Review Workflow Guide](/api/review/understanding-reviews).
+**When `review_status` is `pending`**: Wait for a decision before processing. See [Review Workflow Guide](/api/review/understanding-reviews).
 </Tip>
 
 ## What's Next?
@@ -276,14 +279,13 @@ extract_response = requests.post(
 
 result = extract_response.json()
 
-# 4. Process results
-if not result["needs_review"]:
-    print("Extracted Data:")
-    print(result["results"])
+# 4. Copy imports and function only from /api/review/polling-pattern into review_polling.py.
+from review_polling import poll_for_review
+outcome = poll_for_review(document_id, API_KEY)
+if outcome["outcome"] == "continue":
+    print(outcome["results"])
 else:
-    print("Document flagged for review. Waiting for human verification...")
-    # Poll for reviewed results
-    # See review workflow guide for details
+    print("No processable result:", outcome["outcome"])
 ```
 
 ## Troubleshooting
