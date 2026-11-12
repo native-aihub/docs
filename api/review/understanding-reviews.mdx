@@ -152,7 +152,10 @@ A rejection sets four fields on the extraction:
 | `is_rejected` | `true` when the document is rejected |
 | `rejected_at` | Time of the rejection |
 | `rejected_by` | ID of the user who rejected the document |
+| `rejected_by_name`, `rejected_by_email` | Name and e-mail address of that user |
 | `rejection_reason` | Reason from the reviewer, or `null` |
+
+An organization admin can make the reason mandatory for a project. Then the reviewer must give a reason, and an API request without a reason returns `422`.
 
 Rejection does not change `status`, `needs_review`, `is_reviewed`, `results` or `reviewed_results`. The first rejection is kept.
 

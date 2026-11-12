@@ -45,9 +45,13 @@ Requires `extractions:read` scope.
       "is_reviewed": false,
       "reviewed_at": null,
       "reviewed_by": null,
+      "reviewed_by_name": null,
+      "reviewed_by_email": null,
       "is_rejected": false,
       "rejected_at": null,
       "rejected_by": null,
+      "rejected_by_name": null,
+      "rejected_by_email": null,
       "rejection_reason": null,
       "created_at": "2024-01-15T10:30:00Z"
     }
@@ -57,6 +61,8 @@ Requires `extractions:read` scope.
   "limit": 100
 }
 ```
+
+`reviewed_by` and `rejected_by` are user IDs. The `*_name` and `*_email` fields give the name and e-mail address of the same user.
 
 A rejected document has `is_rejected: true`. Test this field before `is_reviewed`. See [Reject Document](/api-reference/reject-review).
 

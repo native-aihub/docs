@@ -179,7 +179,15 @@ ISO 8601 timestamp of review completion. `null` if not reviewed.
 </ResponseField>
 
 <ResponseField name="reviewed_by" type="string | null">
-UUID of user who performed review. `null` if not reviewed.
+UUID of user who performed review. `null` if not reviewed. For an API key request, this is the owner of the key.
+</ResponseField>
+
+<ResponseField name="reviewed_by_name" type="string | null">
+Name of the user in `reviewed_by`. `null` if not reviewed or if the user has no name.
+</ResponseField>
+
+<ResponseField name="reviewed_by_email" type="string | null">
+E-mail address of the user in `reviewed_by`. `null` if not reviewed.
 </ResponseField>
 
 <ResponseField name="is_rejected" type="boolean">
@@ -192,6 +200,14 @@ ISO 8601 timestamp of the rejection. `null` if not rejected.
 
 <ResponseField name="rejected_by" type="string | null">
 UUID of the user who rejected the document. `null` if not rejected.
+</ResponseField>
+
+<ResponseField name="rejected_by_name" type="string | null">
+Name of the user in `rejected_by`. `null` if not rejected or if the user has no name.
+</ResponseField>
+
+<ResponseField name="rejected_by_email" type="string | null">
+E-mail address of the user in `rejected_by`. `null` if not rejected.
 </ResponseField>
 
 <ResponseField name="rejection_reason" type="string | null">

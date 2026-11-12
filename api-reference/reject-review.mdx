@@ -23,11 +23,13 @@ Requires `extractions:write` scope.
 
 ## Request Body
 
-The body is optional.
+The body is optional, unless the project of the document requires a reason.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reason` | string | No | Why the document is rejected. Maximum 2000 characters. An empty value is stored as `null`. |
+| `reason` | string | Depends on the project | Why the document is rejected. Maximum 2000 characters. An empty value is stored as `null`. |
+
+An organization admin can make the reason mandatory for a project (**Require a rejection reason** in the project settings). For a document in such a project, a request without a reason returns `422`.
 
 ## Response
 
@@ -38,6 +40,8 @@ The body is optional.
   "is_rejected": true,
   "rejected_at": "2026-11-06T09:12:45Z",
   "rejected_by": "7f1c2a9e-3b4d-4c5e-8f6a-1b2c3d4e5f60",
+  "rejected_by_name": "Jane Reviewer",
+  "rejected_by_email": "jane.reviewer@example.com",
   "rejection_reason": "Wrong document uploaded"
 }
 ```
@@ -47,6 +51,8 @@ The body is optional.
 | `is_rejected` | boolean | Always `true` after a successful call |
 | `rejected_at` | string | ISO 8601 timestamp of the rejection |
 | `rejected_by` | string (UUID) | ID of the user who rejected the document. For an API key request, this is the owner of the key. |
+| `rejected_by_name` | string \| null | Name of that user. `null` if the user has no name or no longer exists. |
+| `rejected_by_email` | string \| null | E-mail address of that user. `null` if the user no longer exists. |
 | `rejection_reason` | string \| null | The reason, if one was given |
 
 ## Behavior
@@ -79,4 +85,4 @@ print(response.json()["is_rejected"])  # True
 | `400` | `document_id` is not a valid UUID |
 | `403` | You do not have access to this document |
 | `404` | No extraction exists for this document |
-| `422` | `reason` is longer than 2000 characters |
+| `422` | `reason` is longer than 2000 characters, or the project requires a reason and none was given |
