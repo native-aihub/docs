@@ -47,11 +47,3 @@ response = requests.put(
     }
 )
 ```
-
-## Workflow compatibility
-
-For `review_decision_managed=false` or an absent snapshot, this endpoint preserves the existing legacy approval and result-editing workflow, including reapproval of previously reviewed results. Legacy review booleans and reflagging semantics remain unchanged. It does not enroll a document into managed decisions or create a managed decision event.
-
-For `review_decision_managed=true`, this is a guarded approval adapter. It accepts only managed pending documents with completed technical processing and authorized write scope. It cannot reopen or overwrite a managed terminal decision.
-
-Managed clients that need reliable retry identities should use [Submit Review Decision](/api-reference/review-decision). Unmanaged clients keep their existing PUT integration.
