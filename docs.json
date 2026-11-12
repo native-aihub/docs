@@ -118,6 +118,7 @@
             "pages": [
               "api-reference/pending-reviews",
               "api-reference/update-review",
+              "api-reference/reject-review",
               "api-reference/flag-review"
             ]
           },

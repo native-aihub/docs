@@ -141,6 +141,25 @@ If `optional_notes` has low confidence → No review needed
 
 ⚠️ One field below threshold → Wait for human review before using data
 
+## Rejected Documents
+
+A reviewer can reject a document, for example when the wrong file was uploaded. The **Reject** button on the review page and [`POST /review/{document_id}/reject`](/api-reference/reject-review) do the same action.
+
+A rejection sets four fields on the extraction:
+
+| Field | Description |
+|-------|-------------|
+| `is_rejected` | `true` when the document is rejected |
+| `rejected_at` | Time of the rejection |
+| `rejected_by` | ID of the user who rejected the document |
+| `rejection_reason` | Reason from the reviewer, or `null` |
+
+Rejection does not change `status`, `needs_review`, `is_reviewed`, `results` or `reviewed_results`. The first rejection is kept.
+
+<Warning>
+Test `is_rejected` before `is_reviewed` in every automation. If `is_rejected` is `true`, stop the work item for that document and do not use its results. A rejected document can also have `is_reviewed = true`.
+</Warning>
+
 ## Handling Reviews in Automation
 
 ### Decision Flow

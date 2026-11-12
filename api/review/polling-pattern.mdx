@@ -7,6 +7,10 @@ description: "Implement robust polling to detect when extractions are reviewed"
 
 For automation pipelines, you need to detect when a human has reviewed and corrected an extraction. This guide shows how to implement efficient, robust polling to wait for the `is_reviewed` flag to become `true`.
 
+<Warning>
+A reviewer can also reject a document. Test `is_rejected` before `is_reviewed` in every polling loop. If `is_rejected` is `true`, stop waiting and cancel the work item. The basic Python example on this page shows the check; apply the same check to the other patterns. See [Reject Document](/api-reference/reject-review).
+</Warning>
+
 ## The Review Lifecycle
 
 <Steps>
@@ -18,12 +22,12 @@ For automation pipelines, you need to detect when a human has reviewed and corre
   Human reviewer sees the extraction in the pending reviews queue.
 </Step>
 
-<Step title="Review Completed">
-  Reviewer corrects fields and saves, setting `is_reviewed = true`.
+<Step title="Review Completed or Document Rejected">
+  Reviewer corrects fields and saves, setting `is_reviewed = true`. Or the reviewer rejects the document, setting `is_rejected = true`.
 </Step>
 
 <Step title="Automation Resumes">
-  Your polling detects the change and retrieves `reviewed_results`.
+  Your polling detects the change. It retrieves `reviewed_results`, or it cancels the work item if the document is rejected.
 </Step>
 </Steps>
 
@@ -53,7 +57,7 @@ def poll_for_review(
         timeout: Maximum seconds to wait (default: 300/5min)
     
     Returns:
-        Reviewed results or None if timeout
+        Reviewed results, or None if the document is rejected or on timeout
     """
     headers = {"X-API-Key": api_key}
     start_time = time.time()
@@ -86,6 +90,12 @@ def poll_for_review(
         
         extraction = data["items"][0]
         
+        # Test the rejection first: a rejected document must not be processed
+        if extraction.get("is_rejected"):
+            reason = extraction.get("rejection_reason") or "no reason given"
+            print(f"✗ Document rejected: {reason}")
+            return None
+
         if extraction.get("is_reviewed"):
             elapsed = time.time() - start_time
             print(f"✓ Review completed after {elapsed:.1f}s ({poll_count} polls)")

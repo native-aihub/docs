@@ -7,6 +7,10 @@ description: "Production-ready automation workflow implementations"
 
 This guide shows production-ready patterns for integrating Documind into your automation pipelines. All examples handle the complete workflow including review polling.
 
+<Warning>
+A reviewer can reject a document. In each polling loop, test `is_rejected` before `is_reviewed`. If `is_rejected` is `true`, cancel the work item and do not use the results. See [Reject Document](/api-reference/reject-review).
+</Warning>
+
 ## Pattern 1: Batch Processing
 
 Process multiple documents with parallel extraction and review handling.

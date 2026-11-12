@@ -22,6 +22,7 @@ Requires `extractions:read` scope.
 | `document_id` | string (UUID) | Filter by document ID |
 | `needs_review` | boolean | Filter by review status |
 | `is_reviewed` | boolean | Filter by reviewed state |
+| `is_rejected` | boolean | Filter by rejection flag. Omit to return both. |
 | `created_after` | string (ISO date) | Filter by creation date |
 | `created_before` | string (ISO date) | Filter by creation date |
 | `sort_by` | string | Field to sort by (default: `created_at`) |
@@ -42,6 +43,12 @@ Requires `extractions:read` scope.
       "status": "completed",
       "needs_review": false,
       "is_reviewed": false,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "is_rejected": false,
+      "rejected_at": null,
+      "rejected_by": null,
+      "rejection_reason": null,
       "created_at": "2024-01-15T10:30:00Z"
     }
   ],
@@ -50,6 +57,8 @@ Requires `extractions:read` scope.
   "limit": 100
 }
 ```
+
+A rejected document has `is_rejected: true`. Test this field before `is_reviewed`. See [Reject Document](/api-reference/reject-review).
 
 ## Examples
 

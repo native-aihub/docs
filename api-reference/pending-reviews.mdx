@@ -41,3 +41,5 @@ pending_reviews = response.json()
 ```
 
 Use `GET /api/v1/data/extractions/{extraction_id}` for full extraction details.
+
+A rejected document stays in this list until it is reviewed. The list does not include the rejection fields. Read `is_rejected` from the extraction details.

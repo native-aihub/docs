@@ -53,6 +53,15 @@ Filter by review completion status.
 ```
 </ParamField>
 
+<ParamField query="is_rejected" type="boolean">
+Filter by rejection flag. Omit the parameter to return both.
+
+```bash
+?is_rejected=true    # Only rejected documents
+?is_rejected=false   # Only documents that are not rejected
+```
+</ParamField>
+
 <ParamField query="original_filename" type="string">
 Filter by exact filename match.
 
@@ -171,6 +180,22 @@ ISO 8601 timestamp of review completion. `null` if not reviewed.
 
 <ResponseField name="reviewed_by" type="string | null">
 UUID of user who performed review. `null` if not reviewed.
+</ResponseField>
+
+<ResponseField name="is_rejected" type="boolean">
+Whether a reviewer rejected the document. **Test this field before `is_reviewed`.** A rejected document must not be processed.
+</ResponseField>
+
+<ResponseField name="rejected_at" type="string | null">
+ISO 8601 timestamp of the rejection. `null` if not rejected.
+</ResponseField>
+
+<ResponseField name="rejected_by" type="string | null">
+UUID of the user who rejected the document. `null` if not rejected.
+</ResponseField>
+
+<ResponseField name="rejection_reason" type="string | null">
+Reason that the reviewer gave. `null` if not rejected or if no reason was given.
 </ResponseField>
 
 <ResponseField name="results" type="object">
