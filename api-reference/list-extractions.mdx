@@ -20,9 +20,9 @@ Requires `extractions:read` scope.
 | `skip` | integer | Number of items to skip (default: 0) |
 | `limit` | integer | Maximum items to return (default: 100, max: 1000) |
 | `document_id` | string (UUID) | Filter by document ID |
-| `review_status` | string | Explicit review state, such as `pending` or `rejected` |
-| `needs_review` | boolean | Legacy review requirement flag |
+| `needs_review` | boolean | Filter by review status |
 | `is_reviewed` | boolean | Filter by reviewed state |
+| `is_rejected` | boolean | Filter by rejection flag. Omit to return both. |
 | `created_after` | string (ISO date) | Filter by creation date |
 | `created_before` | string (ISO date) | Filter by creation date |
 | `sort_by` | string | Field to sort by (default: `created_at`) |
@@ -43,6 +43,16 @@ Requires `extractions:read` scope.
       "status": "completed",
       "needs_review": false,
       "is_reviewed": false,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "reviewed_by_name": null,
+      "reviewed_by_email": null,
+      "is_rejected": false,
+      "rejected_at": null,
+      "rejected_by": null,
+      "rejected_by_name": null,
+      "rejected_by_email": null,
+      "rejection_reason": null,
       "created_at": "2024-01-15T10:30:00Z"
     }
   ],
@@ -51,6 +61,10 @@ Requires `extractions:read` scope.
   "limit": 100
 }
 ```
+
+`reviewed_by` and `rejected_by` are user IDs. The `*_name` and `*_email` fields give the name and e-mail address of the same user.
+
+A rejected document has `is_rejected: true`. Test this field before `is_reviewed`. See [Reject Document](/api-reference/reject-review).
 
 ## Examples
 
@@ -98,5 +112,3 @@ const response = await axios.get(
   Learn about the review workflow
 </Card>
 </CardGroup>
-
-Use `review_status` for automation. Review state, request/decision timestamps, reason, comment, and decision ID are included in history responses after the review migration. See [current review state](/api-reference/get-review) for fields and audit evidence.

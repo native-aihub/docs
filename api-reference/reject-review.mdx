@@ -1,0 +1,88 @@
+---
+title: "Reject Document"
+description: "Mark a document as rejected"
+---
+
+## Endpoint
+
+```
+POST https://api.documind.cloud/api/v1/review/{document_id}/reject
+```
+
+Use this endpoint when a document must not be processed, for example when the wrong file was uploaded. Reviewers use the same action with the **Reject** button on the review page.
+
+## Authentication
+
+Requires `extractions:write` scope.
+
+## Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document_id` | string (UUID) | Yes | ID of the document to reject |
+
+## Request Body
+
+The body is optional, unless the project of the document requires a reason.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | string | Depends on the project | Why the document is rejected. Maximum 2000 characters. An empty value is stored as `null`. |
+
+An organization admin can make the reason mandatory for a project (**Require a rejection reason** in the project settings). For a document in such a project, a request without a reason returns `422`.
+
+## Response
+
+```json
+{
+  "status": "success",
+  "document_id": "550e8400-e29b-41d4-a716-446655440000",
+  "is_rejected": true,
+  "rejected_at": "2026-11-06T09:12:45Z",
+  "rejected_by": "7f1c2a9e-3b4d-4c5e-8f6a-1b2c3d4e5f60",
+  "rejected_by_name": "Jane Reviewer",
+  "rejected_by_email": "jane.reviewer@example.com",
+  "rejection_reason": "Wrong document uploaded"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `is_rejected` | boolean | Always `true` after a successful call |
+| `rejected_at` | string | ISO 8601 timestamp of the rejection |
+| `rejected_by` | string (UUID) | ID of the user who rejected the document. For an API key request, this is the owner of the key. |
+| `rejected_by_name` | string \| null | Name of that user. `null` if the user has no name or no longer exists. |
+| `rejected_by_email` | string \| null | E-mail address of that user. `null` if the user no longer exists. |
+| `rejection_reason` | string \| null | The reason, if one was given |
+
+## Behavior
+
+- The first rejection is kept. A repeated request returns `200` and does not change `rejected_at`, `rejected_by` or `rejection_reason`.
+- Rejection changes only the rejection fields. `status`, `needs_review`, `is_reviewed`, `results` and `reviewed_results` keep their values.
+- A rejected document stays in `GET /pending-reviews` until it is reviewed.
+- `PUT /review/{document_id}` does not check the rejection. A document can be both rejected and reviewed.
+
+<Warning>
+In your automation, test `is_rejected` before `is_reviewed`. If `is_rejected` is `true`, stop the work item for that document and do not use its results.
+</Warning>
+
+## Example
+
+```python
+response = requests.post(
+    f"https://api.documind.cloud/api/v1/review/{document_id}/reject",
+    headers={"X-API-Key": API_KEY},
+    json={"reason": "Wrong document uploaded"}
+)
+
+print(response.json()["is_rejected"])  # True
+```
+
+## Errors
+
+| Status | Cause |
+|--------|-------|
+| `400` | `document_id` is not a valid UUID |
+| `403` | You do not have access to this document |
+| `404` | No extraction exists for this document |
+| `422` | `reason` is longer than 2000 characters, or the project requires a reason and none was given |

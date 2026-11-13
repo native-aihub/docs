@@ -24,13 +24,7 @@ Requires `extractions:read` scope.
     "filename": "invoice.pdf",
     "created_at": "2026-06-02T10:30:00Z",
     "updated_at": "2026-06-02T10:30:00Z",
-    "status": "completed",
-    "review_status": "pending",
-    "review_requested_at": "2026-06-02T10:30:00Z",
-    "review_decided_at": null,
-    "review_reason_code": null,
-    "review_comment": null,
-    "review_decision_id": null
+    "status": "completed"
   }
 ]
 ```
@@ -48,4 +42,4 @@ pending_reviews = response.json()
 
 Use `GET /api/v1/data/extractions/{extraction_id}` for full extraction details.
 
-This queue includes managed `review_status=pending` documents and unmanaged legacy `needs_review=true,is_reviewed=false` documents. The `review_status=pending` history filter provides this same combined queue with accurate pagination. A missing queue item is not proof of approval; read its [current state](/api-reference/get-review). Rejected and expired documents remain in history.
+A rejected document stays in this list until it is reviewed. The list does not include the rejection fields. Read `is_rejected` from the extraction details.

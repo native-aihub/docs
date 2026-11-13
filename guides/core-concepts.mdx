@@ -3,9 +3,6 @@ title: "Core Concepts"
 description: "Understanding Documind's key concepts and workflows"
 ---
 
-<Warning>Use `review_decision_managed` to select the workflow. False or absent preserves your existing legacy endpoints, booleans, and review behavior. True uses explicit review states, terminal cancellation, and read-only decisions. For managed documents, missing or unknown state stops processing. See the [state dispatcher](/api/review/polling-pattern).</Warning>
-
-
 ## Documents and Extractions
 
 ### Documents
@@ -300,13 +297,44 @@ The `needs_review_metadata` contains flags matching your data structure:
 
 ### Review States
 
-Technical extraction status and review state are separate. `not_required` permits automated processing only after technical `status=completed`. `pending` waits. `approved` permits reviewed results. `rejected` and `expired` require your integration to cancel downstream work. `legacy_reviewed` preserves existing legacy handling. Missing or unknown state stops processing.
+An extraction goes through these states:
 
-See [Review Decisions](/api/review/understanding-reviews) for web actions and [safe polling](/api/review/polling-pattern) for explicit outcome dispatch.
+```
+Initial Extraction
+↓
+needs_review = true?
+│
+├─ No  → Use results immediately
+│
+└─ Yes → Human reviews
+         ↓
+         PUT /review/{document_id}
+         ↓
+         is_reviewed = true
+         ↓
+         Use reviewed_results
+```
 
 ### Polling for Review
 
-Use the [single state-aware polling helper](/api/review/polling-pattern). It stops on rejected/expired or unavailable states and checks stored technical status before returning usable results.
+Poll the extractions endpoint to check review status:
+
+```python
+import time
+
+while True:
+    response = requests.get(
+        f"{BASE_URL}/data/extractions?document_id={document_id}",
+        headers=headers
+    )
+    extraction = response.json()["items"][0]
+    
+    if extraction["is_reviewed"]:
+        results = extraction["reviewed_results"]
+        break
+    
+    time.sleep(10)  # Wait 10 seconds before checking again
+```
 
 ## Credits System
 
